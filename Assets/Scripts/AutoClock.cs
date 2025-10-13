@@ -81,25 +81,27 @@ public class GameClock : MonoBehaviour
 
         if (IsSceneInBuildSettings(nightScene))
         {
+            Debug.Log($"Cambiando a escena nocturna: {nightScene}");
             SceneManager.LoadScene(nightScene);
         }
         else
         {
-            Debug.LogError($"Escena '{nightScene}' no encontrada");
+            Debug.LogError($"Escena '{nightScene}' no encontrada en Build Settings");
         }
     }
 
-    void ChangeToDayScene()
+    public void ChangeToDayScene()
     {
         string dayScene = "SampleScene";
 
         if (IsSceneInBuildSettings(dayScene))
         {
+            Debug.Log($"Cambiando a escena diurna: {dayScene}");
             SceneManager.LoadScene(dayScene);
         }
         else
         {
-            Debug.LogError($"Escena '{dayScene}' no encontrada");
+            Debug.LogError($"Escena '{dayScene}' no encontrada en Build Settings");
         }
     }
 
@@ -120,5 +122,16 @@ public class GameClock : MonoBehaviour
     {
         string timeString = $"{currentHour:00}:{currentMinute:00}";
         GUI.Label(new Rect(Screen.width - 120, 10, 110, 30), timeString, clockStyle);
+    }
+
+    public int GetCurrentHour() => currentHour;
+    public int GetCurrentMinute() => currentMinute;
+    public string GetCurrentTimeString() => $"{currentHour:00}:{currentMinute:00}";
+
+    void OnDestroy()
+    {
+        if (Instance == this)
+        {
+        }
     }
 }
