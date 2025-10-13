@@ -73,6 +73,11 @@ public class GameClock : MonoBehaviour
         {
             fivePMTriggered = false;
         }
+
+        if(currentHour == 7 && currentMinute == 59)
+        {
+            ChangeToDayScene();
+        }
     }
 
     void ChangeToNightScene()
