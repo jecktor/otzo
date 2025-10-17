@@ -16,6 +16,25 @@ public class GameClock : MonoBehaviour
     private GUIStyle clockStyle;
     private bool fivePMTriggered = false;
 
+
+
+    public void SleepAndAdvanceTime()
+    {
+        AdvanceTime();
+
+        ChangeToDayScene();
+    }
+
+    public void AdvanceTime()
+    {
+        float realSecondsPerGameHour = (dayDurationInMinutes * 60f) / 24f;
+        float secondsToAdvance = 8 * realSecondsPerGameHour;
+
+        gameTime = secondsToAdvance;
+
+        CalculateGameTime();
+
+    }
     void Awake()
     {
         if (Instance == null)
