@@ -366,6 +366,7 @@ GameObject:
   - component: {fileID: 947799267}
   - component: {fileID: 947799265}
   - component: {fileID: 947799266}
+  - component: {fileID: 947799268}
   m_Layer: 0
   m_Name: FPCamera
   m_TagString: Untagged
@@ -460,6 +461,18 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1774181376}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &947799268
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 947799264}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a6a89deca58e5462f90044caaabd2ebb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Otzo.Raycasting
 --- !u!1 &1226159243
 GameObject:
   m_ObjectHideFlags: 0
@@ -607,7 +620,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FPController
   MaxSpeed: 3.5
   Acceleration: 15
-  LookSensitivity: {x: 0.1, y: 0.1}
+  LookSensitivity: {x: 0.25, y: 0.25}
   PitchLimit: 85
   currentPitch: 0
   MoveInput: {x: 0, y: 0}
@@ -680,7 +693,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ec448e04aa93d47d5a1fcba63e2893f6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NewMonoBehaviourScript
-  FpController: {fileID: 0}
+  FPController: {fileID: 1774181377}
 --- !u!1 &2116909344
 GameObject:
   m_ObjectHideFlags: 0
