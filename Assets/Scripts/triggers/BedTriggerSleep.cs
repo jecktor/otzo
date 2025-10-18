@@ -39,12 +39,10 @@ public class BedTriggerSleep : MonoBehaviour
 
     void SleepInBed()
     {
-
         if (gameClock != null)
         {
             gameClock.SleepAndAdvanceTime();
         }
-
     }
 
     void CreateGUIStyle()

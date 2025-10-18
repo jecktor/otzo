@@ -10,29 +10,134 @@ public class GameClock : MonoBehaviour
     public float dayDurationInMinutes = 5f;
     public int startHour = 8;
     public int startDay = 1;
+    public float nightTimeScale = 0.5f;
+
+    [Header("Configuración Sueño")]
+    public float maxSleepQuality = 100f;
+    public float sleepDeprivationPenalty = 2f;
+    public int optimalSleepHour = 22;
+    public float baseFatigueRate = 0.5f;
+    public float fatigueMultiplier = 2f;
 
     private float gameTime;
     private int currentHour;
     private int currentMinute;
     private int currentDay;
+    private float currentSleepQuality;
     private GUIStyle clockStyle;
+    private GUIStyle sleepStyle;
     private bool fivePMTriggered = false;
+    private bool isNightScene = false;
+    private int lastCheckedHour = -1;
+    private float fatigueAccumulator = 0f;
+    private float lastFatigueUpdateTime = 0f;
+
+    public float CurrentSleepQuality => currentSleepQuality;
+    public float SleepQualityPercent => currentSleepQuality / maxSleepQuality;
 
     public void SleepAndAdvanceTime()
     {
-        AdvanceTime();
+        CalculateSleepQuality();
+        currentDay++;
+        SetExactTime(8, 0);
         ChangeToDayScene();
+
+        Debug.Log($"Día {currentDay} - Calidad de sueño: {currentSleepQuality:F1}%");
     }
 
-    public void AdvanceTime()
+    void CalculateSleepQuality()
+    {
+        float sleepPenalty = 0f;
+        int hourToSleep = currentHour;
+
+        if (hourToSleep < optimalSleepHour)
+        {
+            int hoursBeforeOptimal = optimalSleepHour - hourToSleep;
+            sleepPenalty = hoursBeforeOptimal * sleepDeprivationPenalty;
+        }
+        else
+        {
+            int hoursAfterOptimal = hourToSleep - optimalSleepHour;
+            sleepPenalty = hoursAfterOptimal * sleepDeprivationPenalty * 2f;
+        }
+
+        currentSleepQuality = Mathf.Clamp(maxSleepQuality - sleepPenalty, 10f, maxSleepQuality);
+
+        Debug.Log($"Hora de dormir: {hourToSleep}:00, Penalización: {sleepPenalty}, Calidad: {currentSleepQuality}%");
+    }
+
+    void UpdateFatigue()
+    {
+        float currentTime = Time.time;
+        float timeSinceLastUpdate = currentTime - lastFatigueUpdateTime;
+
+        if (timeSinceLastUpdate >= 1f)
+        {
+            float fatigueRate = CalculateFatigueRate();
+
+            if (isNightScene)
+            {
+                fatigueRate *= 1.5f;
+            }
+
+            float fatigueThisSecond = fatigueRate * timeSinceLastUpdate;
+
+            currentSleepQuality = Mathf.Clamp(currentSleepQuality - fatigueThisSecond, 0f, maxSleepQuality);
+            lastFatigueUpdateTime = currentTime;
+
+            fatigueAccumulator += fatigueThisSecond;
+
+            if (fatigueAccumulator >= 1f)
+            {
+                string escena = isNightScene ? "Habitación" : "Día";
+                Debug.Log($"[{escena}] Fatiga acumulada: -{fatigueAccumulator:F2}%, Sueño actual: {currentSleepQuality:F1}%");
+                fatigueAccumulator = 0f;
+            }
+        }
+    }
+
+    float CalculateFatigueRate()
+    {
+        float sleepPercent = SleepQualityPercent;
+        float fatigueRate = baseFatigueRate;
+
+        if (sleepPercent >= 0.8f)
+        {
+            fatigueRate *= 0.2f;
+        }
+        else if (sleepPercent >= 0.6f)
+        {
+            fatigueRate *= 0.5f;
+        }
+        else if (sleepPercent >= 0.4f)
+        {
+            fatigueRate *= 0.8f;
+        }
+        else if (sleepPercent >= 0.2f)
+        {
+            fatigueRate *= 1.5f;
+        }
+        else
+        {
+            fatigueRate *= 2f;
+        }
+
+        return fatigueRate;
+    }
+
+    public void SetExactTime(int targetHour, int targetMinute)
     {
         float realSecondsPerGameHour = (dayDurationInMinutes * 60f) / 24f;
-        float secondsToAdvance = 8 * realSecondsPerGameHour;
+        float realSecondsPerGameMinute = realSecondsPerGameHour / 60f;
 
-        gameTime += secondsToAdvance; // Cambié = por += para sumar tiempo, no resetear
+        int totalMinutesFromStart = (targetHour - startHour) * 60 + targetMinute;
+        if (totalMinutesFromStart < 0) totalMinutesFromStart += 24 * 60;
+
+        int daysFromStart = currentDay - startDay;
+        float totalGameTime = (daysFromStart * 24 * 60 + totalMinutesFromStart) * realSecondsPerGameMinute;
+
+        gameTime = totalGameTime;
         CalculateGameTime();
-
-        Debug.Log($"Tiempo avanzado 8 horas. Día {currentDay}, Hora: {GetCurrentTimeString()}");
     }
 
     void Awake()
@@ -54,22 +159,34 @@ public class GameClock : MonoBehaviour
         currentHour = startHour;
         currentMinute = 0;
         currentDay = startDay;
+        currentSleepQuality = maxSleepQuality;
         gameTime = 0f;
         fivePMTriggered = false;
+        isNightScene = false;
+        lastCheckedHour = -1;
+        lastFatigueUpdateTime = Time.time;
 
         clockStyle = new GUIStyle();
         clockStyle.fontSize = 20;
         clockStyle.normal.textColor = Color.white;
         clockStyle.alignment = TextAnchor.UpperRight;
         clockStyle.fontStyle = FontStyle.Bold;
+
+        sleepStyle = new GUIStyle();
+        sleepStyle.fontSize = 16;
+        sleepStyle.normal.textColor = Color.white;
+        sleepStyle.alignment = TextAnchor.UpperLeft;
+        sleepStyle.fontStyle = FontStyle.Bold;
     }
 
     void Update()
     {
-        gameTime += Time.deltaTime;
+        float deltaTime = Time.deltaTime;
+        gameTime += deltaTime;
         CalculateGameTime();
         CheckFor5PM();
         CheckForNewDay();
+        UpdateFatigue();
     }
 
     void CalculateGameTime()
@@ -87,11 +204,10 @@ public class GameClock : MonoBehaviour
 
     void CheckForNewDay()
     {
-        int lastCheckedHour = -1;
-
         if (currentHour == 0 && lastCheckedHour == 23)
         {
             currentDay++;
+            Debug.Log($"¡Nuevo día automático! Día {currentDay}");
             OnNewDayStarted();
         }
 
@@ -123,12 +239,9 @@ public class GameClock : MonoBehaviour
 
         if (IsSceneInBuildSettings(nightScene))
         {
-            Debug.Log($"Cambiando a escena nocturna: {nightScene}");
+            isNightScene = true;
+            Time.timeScale = nightTimeScale;
             SceneManager.LoadScene(nightScene);
-        }
-        else
-        {
-            Debug.LogError($"Escena '{nightScene}' no encontrada en Build Settings");
         }
     }
 
@@ -138,12 +251,9 @@ public class GameClock : MonoBehaviour
 
         if (IsSceneInBuildSettings(dayScene))
         {
-            Debug.Log($"Cambiando a escena diurna: {dayScene}");
+            isNightScene = false;
+            Time.timeScale = 1f;
             SceneManager.LoadScene(dayScene);
-        }
-        else
-        {
-            Debug.LogError($"Escena '{dayScene}' no encontrada en Build Settings");
         }
     }
 
@@ -163,16 +273,36 @@ public class GameClock : MonoBehaviour
     void OnGUI()
     {
         string timeString = $"Día {currentDay} - {currentHour:00}:{currentMinute:00}";
-        GUI.Label(new Rect(Screen.width - 200, 10, 190, 30), timeString, clockStyle);
+        if (isNightScene)
+        {
+            timeString += " (Noche)";
+        }
+        GUI.Label(new Rect(Screen.width - 250, 10, 240, 30), timeString, clockStyle);
+
+        string sleepString = $"Sueño: {currentSleepQuality:F1}%";
+        Color sleepColor = GetSleepColor();
+        sleepStyle.normal.textColor = sleepColor;
+        GUI.Label(new Rect(10, 10, 200, 30), sleepString, sleepStyle);
+    }
+
+    Color GetSleepColor()
+    {
+        if (currentSleepQuality >= 80f) return Color.green;
+        if (currentSleepQuality >= 50f) return Color.yellow;
+        if (currentSleepQuality >= 30f) return new Color(1f, 0.5f, 0f);
+        return Color.red;
     }
 
     void OnNewDayStarted()
     {
+        Debug.Log($"Evento: Comenzó el día {currentDay}");
     }
 
     public int GetCurrentHour() => currentHour;
     public int GetCurrentMinute() => currentMinute;
     public int GetCurrentDay() => currentDay;
+    public float GetSleepQuality() => currentSleepQuality;
+    public float GetSleepQualityPercent() => SleepQualityPercent;
     public string GetCurrentTimeString() => $"{currentHour:00}:{currentMinute:00}";
     public string GetFullTimeString() => $"Día {currentDay} - {currentHour:00}:{currentMinute:00}";
 
@@ -181,12 +311,32 @@ public class GameClock : MonoBehaviour
         if (day >= startDay)
         {
             currentDay = day;
-            Debug.Log($"Día establecido a: {currentDay}");
         }
+    }
+
+    public void ModifySleepQuality(float amount)
+    {
+        currentSleepQuality = Mathf.Clamp(currentSleepQuality + amount, 0f, maxSleepQuality);
+    }
+
+    public void SetSleepQuality(float quality)
+    {
+        currentSleepQuality = Mathf.Clamp(quality, 0f, maxSleepQuality);
+    }
+
+    public string GetFatigueStatus()
+    {
+        float percent = SleepQualityPercent;
+        if (percent >= 0.8f) return "Descansado";
+        if (percent >= 0.6f) return "Alerta";
+        if (percent >= 0.4f) return "Cansado";
+        if (percent >= 0.2f) return "Fatigado";
+        return "Agotado";
     }
 
     void OnDestroy()
     {
+        Time.timeScale = 1f;
         if (Instance == this)
         {
         }
