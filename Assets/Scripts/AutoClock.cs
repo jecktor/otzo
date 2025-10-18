@@ -9,19 +9,18 @@ public class GameClock : MonoBehaviour
     [Header("Configuración Tiempo")]
     public float dayDurationInMinutes = 5f;
     public int startHour = 8;
+    public int startDay = 1;
 
     private float gameTime;
     private int currentHour;
     private int currentMinute;
+    private int currentDay;
     private GUIStyle clockStyle;
     private bool fivePMTriggered = false;
-
-
 
     public void SleepAndAdvanceTime()
     {
         AdvanceTime();
-
         ChangeToDayScene();
     }
 
@@ -30,11 +29,12 @@ public class GameClock : MonoBehaviour
         float realSecondsPerGameHour = (dayDurationInMinutes * 60f) / 24f;
         float secondsToAdvance = 8 * realSecondsPerGameHour;
 
-        gameTime = secondsToAdvance;
-
+        gameTime += secondsToAdvance; // Cambié = por += para sumar tiempo, no resetear
         CalculateGameTime();
 
+        Debug.Log($"Tiempo avanzado 8 horas. Día {currentDay}, Hora: {GetCurrentTimeString()}");
     }
+
     void Awake()
     {
         if (Instance == null)
@@ -53,6 +53,7 @@ public class GameClock : MonoBehaviour
     {
         currentHour = startHour;
         currentMinute = 0;
+        currentDay = startDay;
         gameTime = 0f;
         fivePMTriggered = false;
 
@@ -68,6 +69,7 @@ public class GameClock : MonoBehaviour
         gameTime += Time.deltaTime;
         CalculateGameTime();
         CheckFor5PM();
+        CheckForNewDay();
     }
 
     void CalculateGameTime()
@@ -76,8 +78,24 @@ public class GameClock : MonoBehaviour
         float totalGameHours = gameTime / realSecondsPerGameHour;
 
         int totalGameMinutes = Mathf.FloorToInt(totalGameHours * 60f);
-        currentHour = (startHour + (totalGameMinutes / 60)) % 24;
+
+        int totalHoursFromStart = totalGameMinutes / 60;
+        currentDay = startDay + (totalHoursFromStart / 24);
+        currentHour = (startHour + totalHoursFromStart) % 24;
         currentMinute = totalGameMinutes % 60;
+    }
+
+    void CheckForNewDay()
+    {
+        int lastCheckedHour = -1;
+
+        if (currentHour == 0 && lastCheckedHour == 23)
+        {
+            currentDay++;
+            OnNewDayStarted();
+        }
+
+        lastCheckedHour = currentHour;
     }
 
     void CheckFor5PM()
@@ -93,7 +111,7 @@ public class GameClock : MonoBehaviour
             fivePMTriggered = false;
         }
 
-        if(currentHour == 7 && currentMinute == 59)
+        if (currentHour == 7 && currentMinute == 59)
         {
             ChangeToDayScene();
         }
@@ -144,13 +162,28 @@ public class GameClock : MonoBehaviour
 
     void OnGUI()
     {
-        string timeString = $"{currentHour:00}:{currentMinute:00}";
-        GUI.Label(new Rect(Screen.width - 120, 10, 110, 30), timeString, clockStyle);
+        string timeString = $"Día {currentDay} - {currentHour:00}:{currentMinute:00}";
+        GUI.Label(new Rect(Screen.width - 200, 10, 190, 30), timeString, clockStyle);
+    }
+
+    void OnNewDayStarted()
+    {
     }
 
     public int GetCurrentHour() => currentHour;
     public int GetCurrentMinute() => currentMinute;
+    public int GetCurrentDay() => currentDay;
     public string GetCurrentTimeString() => $"{currentHour:00}:{currentMinute:00}";
+    public string GetFullTimeString() => $"Día {currentDay} - {currentHour:00}:{currentMinute:00}";
+
+    public void SetDay(int day)
+    {
+        if (day >= startDay)
+        {
+            currentDay = day;
+            Debug.Log($"Día establecido a: {currentDay}");
+        }
+    }
 
     void OnDestroy()
     {
