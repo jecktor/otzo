@@ -10,7 +10,7 @@ public class GameClock : MonoBehaviour
     public float dayDurationInMinutes = 5f;
     public int startHour = 8;
     public int startDay = 1;
-    public float nightTimeScale = 0.5f;
+    public float nightClockSlowdown = 0.5f;
 
     [Header("Configuración Sueño")]
     public float maxSleepQuality = 100f;
@@ -31,6 +31,7 @@ public class GameClock : MonoBehaviour
     private int lastCheckedHour = -1;
     private float fatigueAccumulator = 0f;
     private float lastFatigueUpdateTime = 0f;
+    private float clockTimeMultiplier = 1f;
 
     public float CurrentSleepQuality => currentSleepQuality;
     public float SleepQualityPercent => currentSleepQuality / maxSleepQuality;
@@ -165,6 +166,7 @@ public class GameClock : MonoBehaviour
         isNightScene = false;
         lastCheckedHour = -1;
         lastFatigueUpdateTime = Time.time;
+        clockTimeMultiplier = 1f;
 
         clockStyle = new GUIStyle();
         clockStyle.fontSize = 20;
@@ -182,7 +184,10 @@ public class GameClock : MonoBehaviour
     void Update()
     {
         float deltaTime = Time.deltaTime;
-        gameTime += deltaTime;
+
+        // Aplicar multiplicador solo al tiempo del reloj, no al tiempo del juego
+        gameTime += deltaTime * clockTimeMultiplier;
+
         CalculateGameTime();
         CheckFor5PM();
         CheckForNewDay();
@@ -240,7 +245,7 @@ public class GameClock : MonoBehaviour
         if (IsSceneInBuildSettings(nightScene))
         {
             isNightScene = true;
-            Time.timeScale = nightTimeScale;
+            clockTimeMultiplier = nightClockSlowdown;
             SceneManager.LoadScene(nightScene);
         }
     }
@@ -252,7 +257,7 @@ public class GameClock : MonoBehaviour
         if (IsSceneInBuildSettings(dayScene))
         {
             isNightScene = false;
-            Time.timeScale = 1f;
+            clockTimeMultiplier = 1f;
             SceneManager.LoadScene(dayScene);
         }
     }
@@ -275,9 +280,9 @@ public class GameClock : MonoBehaviour
         string timeString = $"Día {currentDay} - {currentHour:00}:{currentMinute:00}";
         if (isNightScene)
         {
-            timeString += " (Noche)";
+            timeString += $" (Noche - Reloj {nightClockSlowdown}x)";
         }
-        GUI.Label(new Rect(Screen.width - 250, 10, 240, 30), timeString, clockStyle);
+        GUI.Label(new Rect(Screen.width - 300, 10, 290, 30), timeString, clockStyle);
 
         string sleepString = $"Sueño: {currentSleepQuality:F1}%";
         Color sleepColor = GetSleepColor();
@@ -336,7 +341,6 @@ public class GameClock : MonoBehaviour
 
     void OnDestroy()
     {
-        Time.timeScale = 1f;
         if (Instance == this)
         {
         }

@@ -616,6 +616,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Actions: {fileID: -944628639613478452, guid: c462ce15a972ce54799c62d9913035aa, type: 3}
   m_NotificationBehavior: 0
+  m_UIInputModule: {fileID: 0}
   m_DeviceLostEvent:
     m_PersistentCalls:
       m_Calls: []
@@ -721,6 +722,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   dayDurationInMinutes: 5
   startHour: 8
+  startDay: 1
+  nightClockSlowdown: 0.5
+  maxSleepQuality: 100
+  sleepDeprivationPenalty: 2
+  optimalSleepHour: 22
+  baseFatigueRate: 0.5
+  fatigueMultiplier: 2
 --- !u!4 &1067332102
 Transform:
   m_ObjectHideFlags: 0
@@ -4701,6 +4709,8 @@ GameObject:
   - component: {fileID: 1600177516819024300}
   - component: {fileID: 4147492718124788888}
   - component: {fileID: 7186631980716938896}
+  - component: {fileID: 7186631980716938898}
+  - component: {fileID: 7186631980716938897}
   m_Layer: 0
   m_Name: Glasses
   m_TagString: Untagged
@@ -10542,6 +10552,36 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!65 &7186631980716938897
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3327777247585335671}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.13138567, y: 0.00056882994, z: 0.031194605}
+  m_Center: {x: 0.00038773334, y: -0.000018771036, z: 0.0002033049}
+--- !u!45 &7186631980716938898
+Skybox:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3327777247585335671}
+  m_Enabled: 0
+  m_CustomSkybox: {fileID: 0}
 --- !u!4 &7186819135501448102
 Transform:
   m_ObjectHideFlags: 0
