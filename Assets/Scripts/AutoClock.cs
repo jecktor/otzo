@@ -7,8 +7,8 @@ public class GameClock : MonoBehaviour
     public static GameClock Instance;
 
     [Header("Configuración Tiempo")]
-    public float dayDurationInMinutes = 5f;
-    public int startHour = 8;
+    public float dayDurationInMinutes = 1f;
+    public int startHour = 16;
     public int startDay = 1;
     public float nightClockSlowdown = 0.5f;
 
@@ -43,7 +43,6 @@ public class GameClock : MonoBehaviour
         SetExactTime(8, 0);
         ChangeToDayScene();
 
-        Debug.Log($"Día {currentDay} - Calidad de sueño: {currentSleepQuality:F1}%");
     }
 
     void CalculateSleepQuality()
@@ -64,7 +63,6 @@ public class GameClock : MonoBehaviour
 
         currentSleepQuality = Mathf.Clamp(maxSleepQuality - sleepPenalty, 10f, maxSleepQuality);
 
-        Debug.Log($"Hora de dormir: {hourToSleep}:00, Penalización: {sleepPenalty}, Calidad: {currentSleepQuality}%");
     }
 
     void UpdateFatigue()
@@ -91,7 +89,6 @@ public class GameClock : MonoBehaviour
             if (fatigueAccumulator >= 1f)
             {
                 string escena = isNightScene ? "Habitación" : "Día";
-                Debug.Log($"[{escena}] Fatiga acumulada: -{fatigueAccumulator:F2}%, Sueño actual: {currentSleepQuality:F1}%");
                 fatigueAccumulator = 0f;
             }
         }
@@ -212,7 +209,6 @@ public class GameClock : MonoBehaviour
         if (currentHour == 0 && lastCheckedHour == 23)
         {
             currentDay++;
-            Debug.Log($"¡Nuevo día automático! Día {currentDay}");
             OnNewDayStarted();
         }
 
