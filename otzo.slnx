@@ -1,0 +1,21 @@
+﻿<Solution>
+  <Project Path="Unity.InputSystem.csproj" />
+  <Project Path="Unity.Cinemachine.Editor.csproj" />
+  <Project Path="Unity.Cinemachine.csproj" />
+  <Project Path="Unity.Splines.Editor.csproj" />
+  <Project Path="Unity.Mathematics.csproj" />
+  <Project Path="com.flipbookgames.scriptinspector3.csproj" />
+  <Project Path="Assembly-CSharp.csproj" />
+  <Project Path="Unity.Splines.csproj" />
+  <Project Path="Unity.AI.Navigation.Editor.csproj" />
+  <Project Path="Unity.VisualStudio.Editor.csproj" />
+  <Project Path="Unity.AI.Navigation.csproj" />
+  <Project Path="Unity.AI.Navigation.Editor.ConversionSystem.csproj" />
+  <Project Path="Unity.InputSystem.TestFramework.csproj" />
+  <Project Path="Unity.AI.Navigation.Updater.csproj" />
+  <Project Path="Unity.Settings.Editor.csproj" />
+  <Project Path="Unity.InputSystem.DocCodeSamples.csproj" />
+  <Project Path="Unity.InputSystem.ForUI.csproj" />
+  <Project Path="Unity.Mathematics.Editor.csproj" />
+  <Project Path="Assembly-CSharp-Editor.csproj" />
+</Solution>
