@@ -1,14 +1,15 @@
 ﻿using UnityEngine;
 using System;
 using UnityEngine.SceneManagement;
+using System.Collections;
 
 public class GameClock : MonoBehaviour
 {
     public static GameClock Instance;
 
     [Header("Configuración Tiempo")]
-    public float dayDurationInMinutes = 5f;
-    public int startHour = 8;
+    public float dayDurationInMinutes = 1f;
+    public int startHour = 16;
     public int startDay = 1;
     public float nightClockSlowdown = 0.5f;
 
@@ -36,14 +37,80 @@ public class GameClock : MonoBehaviour
     public float CurrentSleepQuality => currentSleepQuality;
     public float SleepQualityPercent => currentSleepQuality / maxSleepQuality;
 
+    void Awake()
+    {
+        if (Instance == null)
+        {
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
+            InitializeClock();
+            EnsureTransitionManagerExists();
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
+    }
+
+    void EnsureTransitionManagerExists()
+    {
+        DayNightTransitionManager existingManager = FindFirstObjectByType<DayNightTransitionManager>();
+
+        if (existingManager == null)
+        {
+            GameObject managerObj = new GameObject("DayNightTransitionManager");
+            managerObj.AddComponent<DayNightTransitionManager>();
+            Debug.Log("DayNightTransitionManager creado automáticamente");
+        }
+    }
+
+    void InitializeClock()
+    {
+        currentHour = startHour;
+        currentMinute = 0;
+        currentDay = startDay;
+        currentSleepQuality = maxSleepQuality;
+        gameTime = 0f;
+        fivePMTriggered = false;
+        isNightScene = false;
+        lastCheckedHour = -1;
+        lastFatigueUpdateTime = Time.time;
+        clockTimeMultiplier = 1f;
+
+        clockStyle = new GUIStyle();
+        clockStyle.fontSize = 20;
+        clockStyle.normal.textColor = Color.white;
+        clockStyle.alignment = TextAnchor.UpperRight;
+        clockStyle.fontStyle = FontStyle.Bold;
+
+        sleepStyle = new GUIStyle();
+        sleepStyle.fontSize = 16;
+        sleepStyle.normal.textColor = Color.white;
+        sleepStyle.alignment = TextAnchor.UpperLeft;
+        sleepStyle.fontStyle = FontStyle.Bold;
+    }
+
+    public void SetExactTime(int targetHour, int targetMinute)
+    {
+        float realSecondsPerGameHour = (dayDurationInMinutes * 60f) / 24f;
+        float realSecondsPerGameMinute = realSecondsPerGameHour / 60f;
+
+        int totalMinutesFromStart = (targetHour - startHour) * 60 + targetMinute;
+        if (totalMinutesFromStart < 0) totalMinutesFromStart += 24 * 60;
+
+        int daysFromStart = currentDay - startDay;
+        float totalGameTime = (daysFromStart * 24 * 60 + totalMinutesFromStart) * realSecondsPerGameMinute;
+
+        gameTime = totalGameTime;
+        CalculateGameTime();
+    }
+
     public void SleepAndAdvanceTime()
     {
         CalculateSleepQuality();
         currentDay++;
         SetExactTime(8, 0);
         ChangeToDayScene();
-
-        Debug.Log($"Día {currentDay} - Calidad de sueño: {currentSleepQuality:F1}%");
     }
 
     void CalculateSleepQuality()
@@ -63,12 +130,13 @@ public class GameClock : MonoBehaviour
         }
 
         currentSleepQuality = Mathf.Clamp(maxSleepQuality - sleepPenalty, 10f, maxSleepQuality);
-
-        Debug.Log($"Hora de dormir: {hourToSleep}:00, Penalización: {sleepPenalty}, Calidad: {currentSleepQuality}%");
     }
 
     void UpdateFatigue()
     {
+        if (DayNightTransitionManager.Instance != null && DayNightTransitionManager.Instance.IsTransitioning)
+            return;
+
         float currentTime = Time.time;
         float timeSinceLastUpdate = currentTime - lastFatigueUpdateTime;
 
@@ -90,8 +158,6 @@ public class GameClock : MonoBehaviour
 
             if (fatigueAccumulator >= 1f)
             {
-                string escena = isNightScene ? "Habitación" : "Día";
-                Debug.Log($"[{escena}] Fatiga acumulada: -{fatigueAccumulator:F2}%, Sueño actual: {currentSleepQuality:F1}%");
                 fatigueAccumulator = 0f;
             }
         }
@@ -126,66 +192,12 @@ public class GameClock : MonoBehaviour
         return fatigueRate;
     }
 
-    public void SetExactTime(int targetHour, int targetMinute)
-    {
-        float realSecondsPerGameHour = (dayDurationInMinutes * 60f) / 24f;
-        float realSecondsPerGameMinute = realSecondsPerGameHour / 60f;
-
-        int totalMinutesFromStart = (targetHour - startHour) * 60 + targetMinute;
-        if (totalMinutesFromStart < 0) totalMinutesFromStart += 24 * 60;
-
-        int daysFromStart = currentDay - startDay;
-        float totalGameTime = (daysFromStart * 24 * 60 + totalMinutesFromStart) * realSecondsPerGameMinute;
-
-        gameTime = totalGameTime;
-        CalculateGameTime();
-    }
-
-    void Awake()
-    {
-        if (Instance == null)
-        {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
-            InitializeClock();
-        }
-        else
-        {
-            Destroy(gameObject);
-        }
-    }
-
-    void InitializeClock()
-    {
-        currentHour = startHour;
-        currentMinute = 0;
-        currentDay = startDay;
-        currentSleepQuality = maxSleepQuality;
-        gameTime = 0f;
-        fivePMTriggered = false;
-        isNightScene = false;
-        lastCheckedHour = -1;
-        lastFatigueUpdateTime = Time.time;
-        clockTimeMultiplier = 1f;
-
-        clockStyle = new GUIStyle();
-        clockStyle.fontSize = 20;
-        clockStyle.normal.textColor = Color.white;
-        clockStyle.alignment = TextAnchor.UpperRight;
-        clockStyle.fontStyle = FontStyle.Bold;
-
-        sleepStyle = new GUIStyle();
-        sleepStyle.fontSize = 16;
-        sleepStyle.normal.textColor = Color.white;
-        sleepStyle.alignment = TextAnchor.UpperLeft;
-        sleepStyle.fontStyle = FontStyle.Bold;
-    }
-
     void Update()
     {
-        float deltaTime = Time.deltaTime;
+        if (DayNightTransitionManager.Instance != null && DayNightTransitionManager.Instance.IsTransitioning)
+            return;
 
-        // Aplicar multiplicador solo al tiempo del reloj, no al tiempo del juego
+        float deltaTime = Time.deltaTime;
         gameTime += deltaTime * clockTimeMultiplier;
 
         CalculateGameTime();
@@ -212,7 +224,6 @@ public class GameClock : MonoBehaviour
         if (currentHour == 0 && lastCheckedHour == 23)
         {
             currentDay++;
-            Debug.Log($"¡Nuevo día automático! Día {currentDay}");
             OnNewDayStarted();
         }
 
@@ -221,44 +232,58 @@ public class GameClock : MonoBehaviour
 
     void CheckFor5PM()
     {
+        if (Input.GetKeyDown(KeyCode.T))
+        {
+            Debug.Log("Transición forzada con tecla T");
+            ForceDayEndTransition();
+        }
+
         if (currentHour == 17 && currentMinute == 0 && !fivePMTriggered)
         {
             fivePMTriggered = true;
-            ChangeToNightScene();
+            Debug.Log("¡5 PM detectado! Iniciando transición...");
+
+            if (DayNightTransitionManager.Instance != null)
+            {
+                DayNightTransitionManager.Instance.StartDayEndTransition();
+            }
+            else
+            {
+                Debug.LogError("DayNightTransitionManager.Instance es null");
+            }
         }
 
         if (currentHour == 17 && currentMinute == 1 && fivePMTriggered)
         {
             fivePMTriggered = false;
         }
-
-        if (currentHour == 7 && currentMinute == 59)
-        {
-            ChangeToDayScene();
-        }
     }
 
-    void ChangeToNightScene()
+    public void ChangeToNightScene()
     {
         string nightScene = "room";
-
         if (IsSceneInBuildSettings(nightScene))
         {
             isNightScene = true;
             clockTimeMultiplier = nightClockSlowdown;
             SceneManager.LoadScene(nightScene);
+            Debug.Log("Cambiando a escena nocturna: " + nightScene);
+        }
+        else
+        {
+            Debug.LogError($"Escena nocturna '{nightScene}' no encontrada en build settings");
         }
     }
 
     public void ChangeToDayScene()
     {
         string dayScene = "SampleScene";
-
         if (IsSceneInBuildSettings(dayScene))
         {
             isNightScene = false;
             clockTimeMultiplier = 1f;
             SceneManager.LoadScene(dayScene);
+            Debug.Log("Cambiando a escena diurna: " + dayScene);
         }
     }
 
@@ -277,17 +302,27 @@ public class GameClock : MonoBehaviour
 
     void OnGUI()
     {
-        string timeString = $"Día {currentDay} - {currentHour:00}:{currentMinute:00}";
-        if (isNightScene)
-        {
-            timeString += $" (Noche - Reloj {nightClockSlowdown}x)";
-        }
-        GUI.Label(new Rect(Screen.width - 300, 10, 290, 30), timeString, clockStyle);
+        bool isTransitioning = DayNightTransitionManager.Instance != null && DayNightTransitionManager.Instance.IsTransitioning;
 
-        string sleepString = $"Sueño: {currentSleepQuality:F1}%";
-        Color sleepColor = GetSleepColor();
-        sleepStyle.normal.textColor = sleepColor;
-        GUI.Label(new Rect(10, 10, 200, 30), sleepString, sleepStyle);
+        if (!isTransitioning)
+        {
+            string timeString = $"Día {currentDay} - {currentHour:00}:{currentMinute:00}";
+            if (isNightScene)
+            {
+                timeString += $" (Noche - Reloj {nightClockSlowdown}x)";
+            }
+            GUI.Label(new Rect(Screen.width - 300, 10, 290, 30), timeString, clockStyle);
+
+            string sleepString = $"Sueño: {currentSleepQuality:F1}%";
+            Color sleepColor = GetSleepColor();
+            sleepStyle.normal.textColor = sleepColor;
+            GUI.Label(new Rect(10, 10, 200, 30), sleepString, sleepStyle);
+        }
+
+        if (DayNightTransitionManager.Instance == null)
+        {
+            GUI.Label(new Rect(10, 50, 400, 30), "ERROR: DayNightTransitionManager no encontrado", clockStyle);
+        }
     }
 
     Color GetSleepColor()
@@ -301,6 +336,18 @@ public class GameClock : MonoBehaviour
     void OnNewDayStarted()
     {
         Debug.Log($"Evento: Comenzó el día {currentDay}");
+    }
+
+    public void ForceDayEndTransition()
+    {
+        if (DayNightTransitionManager.Instance != null)
+        {
+            DayNightTransitionManager.Instance.StartDayEndTransition();
+        }
+        else
+        {
+            Debug.LogError("No se puede forzar transición: DayNightTransitionManager no disponible");
+        }
     }
 
     public int GetCurrentHour() => currentHour;
@@ -343,6 +390,7 @@ public class GameClock : MonoBehaviour
     {
         if (Instance == this)
         {
+            // Limpiar si es necesario
         }
     }
 }
