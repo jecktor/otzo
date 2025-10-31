@@ -126,7 +126,8 @@ public class CustomerBehavior : MonoBehaviour
 
 		// Wait for player confirmation
 		Debug.Log($"{name} waiting for player to confirm checkout...");
-		yield return new WaitUntil(() => Input.GetKeyDown(KeyCode.E));
+		yield return new WaitUntil(() => 
+			CheckoutZone.playerInZone && Input.GetKeyDown(KeyCode.E));
 
 		// Player gets money
 		playerMoney += payment;
