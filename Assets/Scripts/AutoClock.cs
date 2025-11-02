@@ -8,8 +8,8 @@ public class GameClock : MonoBehaviour
     public static GameClock Instance;
 
     [Header("Configuración Tiempo")]
-    public float dayDurationInMinutes = 1f;
-    public int startHour = 16;
+    public float dayDurationInMinutes = 10f;
+    public int startHour = 8;
     public int startDay = 1;
     public float nightClockSlowdown = 0.5f;
 
@@ -234,14 +234,12 @@ public class GameClock : MonoBehaviour
     {
         if (Input.GetKeyDown(KeyCode.T))
         {
-            Debug.Log("Transición forzada con tecla T");
             ForceDayEndTransition();
         }
 
         if (currentHour == 17 && currentMinute == 0 && !fivePMTriggered)
         {
             fivePMTriggered = true;
-            Debug.Log("¡5 PM detectado! Iniciando transición...");
 
             if (DayNightTransitionManager.Instance != null)
             {
@@ -307,10 +305,6 @@ public class GameClock : MonoBehaviour
         if (!isTransitioning)
         {
             string timeString = $"Día {currentDay} - {currentHour:00}:{currentMinute:00}";
-            if (isNightScene)
-            {
-                timeString += $" (Noche - Reloj {nightClockSlowdown}x)";
-            }
             GUI.Label(new Rect(Screen.width - 300, 10, 290, 30), timeString, clockStyle);
 
             string sleepString = $"Sueño: {currentSleepQuality:F1}%";
