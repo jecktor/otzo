@@ -47,7 +47,7 @@ public class CustomerBehavior : MonoBehaviour
 		agent.isStopped = false;
 
 		// Start by going to a random store shelf
-		GoToRandomStoreLocation();
+		GoToStoreLocationReserved();
 	}
 
 	void Update()
@@ -77,13 +77,25 @@ public class CustomerBehavior : MonoBehaviour
 	}
 
 	// --- Choose a random shelf and go there ---
-	void GoToRandomStoreLocation()
+	void GoToStoreLocationReserved()
 	{
-		if (storeLocations.Length == 0) return;
+		var qm = cashRegister.GetComponent<QueueManager>();
+		if (!qm) return;
 
-		Transform destination = storeLocations[UnityEngine.Random.Range(0, storeLocations.Length)];
-		agent.SetDestination(destination.position);
+		var spot = qm.RequestStoreSpot(this);
+		if (spot != null)
+		{
+			agent.SetDestination(spot.position);
+		}
+		else
+		{
+			// No free shelves: simple fallback → go queue now (or retry, see below)
+			isShopping = false;
+			var slot = qm.RequestSlot(this);
+			if (slot) agent.SetDestination(slot.position);
+		}
 	}
+
 
 	public IEnumerator Leave()
 	{
@@ -130,11 +142,14 @@ public class CustomerBehavior : MonoBehaviour
 		if (isShopping)
 		{
 			isShopping = false;
-			QueueManager qm = cashRegister.GetComponent<QueueManager>();
+			var qm = cashRegister.GetComponent<QueueManager>();
+			if (qm != null) qm.ReleaseStoreSpot(this);
+
+			isShopping = false;
 			if (qm != null)
 			{
-				Transform slot = qm.RequestSlot(this);
-				agent.SetDestination(slot.position);
+			    Transform slot = qm.RequestSlot(this);
+			    if (slot) agent.SetDestination(slot.position);
 			}
 		}
 

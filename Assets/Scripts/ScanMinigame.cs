@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
+using EasyPeasyFirstPersonController;
 
 public class ScanMiniGame : MonoBehaviour
 {
@@ -19,6 +20,7 @@ public class ScanMiniGame : MonoBehaviour
 	
 	public SkillCheckUI skillCheckUI;
 	public CustomerSpawner cs;
+	public FirstPersonController player;
 	
 	private float hardScanChance = 0.5f;    // starts at 10%
 	private float hardScanChanceIncrease = 0.05f; // +5% each normal scan
@@ -27,6 +29,11 @@ public class ScanMiniGame : MonoBehaviour
 	void Awake()
 	{
 		currentWindow = baseWindow;
+	}
+	
+	public void StepDownDifficulty()
+	{
+		diffMult -= 0.2f;
 	}
 
 	public void Stop()
@@ -47,7 +54,7 @@ public class ScanMiniGame : MonoBehaviour
 	/// </summary>
 	public IEnumerator Run(List<GameObject> items, float totalValue, System.Action<float> onComplete)
 	{
-		if (cs == null || cs.IsMeltdownInProgress)
+		if (cs == null || player == null || cs.IsMeltdownInProgress)
 			yield break;
 		
 		if (items == null || items.Count == 0)
@@ -55,6 +62,8 @@ public class ScanMiniGame : MonoBehaviour
 			onComplete?.Invoke(0f);
 			yield break;
 		}
+		
+		player.SetControl(false);
 
 		totalScans++;
 		successfulScans = 0;
@@ -132,5 +141,7 @@ public class ScanMiniGame : MonoBehaviour
 		float payout = totalValue * accuracy;
 
 		onComplete?.Invoke(payout);
+		
+		player.SetControl(true);
 	}
 }

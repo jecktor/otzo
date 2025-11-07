@@ -2,6 +2,7 @@
 using UnityEngine.UI;
 using System.Collections.Generic;
 using System.Collections;
+using TMPro;
 
 public class CustomerStressManager : MonoBehaviour
 {
@@ -11,11 +12,13 @@ public class CustomerStressManager : MonoBehaviour
 	public Slider stressBar;                   // UI slider (0–1)
 	public QueueManager qm;
 	public ScanMiniGame smg;
+	public TextMeshProUGUI mt;
 
 	[Header("Visuals")]
 	public Color normalColor = Color.green;
 	public Color warningColor = Color.yellow;
 	public Color dangerColor = Color.red;
+	public string[] mentadas;
 
 	private float stressLevel = 0f;
 	private bool meltdownTriggered = false;
@@ -69,18 +72,22 @@ public class CustomerStressManager : MonoBehaviour
 
 	IEnumerator TriggerMeltdown()
 	{
-		Debug.Log("😡 Customer meltdown! Everyone leaves!");
+		Debug.Log("Customer meltdown! Everyone leaves!");
 		stressLevel = maxStress;
 		UpdateUI();
+		mt.text = "\""  +  mentadas[Random.Range(0, mentadas.Length)] + "\"";
 
 		smg.Stop();
 		cs.ClearAllCustomers();
+		
+		smg.StepDownDifficulty();
 		
 		yield return new WaitForSeconds(cs.meltdownPenalty);
 		
 		meltdownTriggered = false;
 		stressLevel = 0f;
 		UpdateUI();
+		mt.text = "";
 	}
 
 	public void ResetStress()
