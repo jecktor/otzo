@@ -6,11 +6,11 @@ public class PlayerMovement : MonoBehaviour
 
     [Header("Movement Settings")]
     public float moveSpeed = 5f;
-    public float jumpForce = 0f;
-    public float gravity = -16;
+    public float jumpForce = 8f;
+    public float gravity = -9.81f;
 
     [Header("Camera Settings")]
-    public float mouseSensitivity = 0.6f;
+    public float mouseSensitivity = 2f;
     public Transform camPos;
 
     [Header("Ground Check")]
@@ -27,6 +27,10 @@ public class PlayerMovement : MonoBehaviour
     {
         characterController = GetComponent<CharacterController>();
         if (groundCheck == null) groundCheck = transform;
+
+        // Configurar cursor
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
     }
 
     public void ProcessMovement(Vector2 input, bool jumpInput)
@@ -58,19 +62,35 @@ public class PlayerMovement : MonoBehaviour
         float mouseY = input.y * mouseSensitivity;
 
         xRotation -= mouseY;
-        xRotation = Mathf.Clamp(xRotation, -90, 90);
+        xRotation = Mathf.Clamp(xRotation, -90f, 90f);
 
         if (camPos != null)
-            camPos.localRotation = Quaternion.Euler(xRotation, 0, 0);
+            camPos.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
 
         transform.Rotate(Vector3.up * mouseX);
+    }
+
+    public void TeleportToPosition(Vector3 position, Quaternion rotation)
+    {
+        characterController.enabled = false;
+        transform.position = position;
+        transform.rotation = rotation;
+
+        xRotation = 0f;
+        if (camPos != null)
+        {
+            camPos.localRotation = Quaternion.identity;
+        }
+
+        characterController.enabled = true;
+        velocity = Vector3.zero;
     }
 
     void OnDrawGizmosSelected()
     {
         if (groundCheck != null)
         {
-            Gizmos.color = Color.red;
+            Gizmos.color = isGrounded ? Color.green : Color.red;
             Gizmos.DrawWireSphere(groundCheck.position, groundDistance);
         }
     }
