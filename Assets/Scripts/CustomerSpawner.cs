@@ -25,6 +25,8 @@ public class CustomerSpawner : MonoBehaviour
 	public Transform exit;               // assign exit
 	public GroceryManager groceryManager; // ✅ new reference
 	public ScanMiniGame scanMiniGame;
+	public AudioSource customerEnter;
+	public AudioSource groceries;
 
 	private List<GameObject> activeCustomers = new List<GameObject>();
 	private float timer;
@@ -88,6 +90,9 @@ public class CustomerSpawner : MonoBehaviour
 			behavior.exit = exit;
 			behavior.groceryManager = groceryManager; // ✅ add this
 			behavior.scanMiniGame = scanMiniGame;
+			behavior.groceries = groceries;
 		}
+		
+		customerEnter.Play();
 	}
 }

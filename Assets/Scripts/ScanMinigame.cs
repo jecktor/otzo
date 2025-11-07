@@ -22,6 +22,10 @@ public class ScanMiniGame : MonoBehaviour
 	public CustomerSpawner cs;
 	public FirstPersonController player;
 	
+	public AudioSource sale;
+	public AudioSource beep;
+	public AudioSource wrong;
+	
 	private float hardScanChance = 0.5f;    // starts at 10%
 	private float hardScanChanceIncrease = 0.05f; // +5% each normal scan
 
@@ -108,11 +112,13 @@ public class ScanMiniGame : MonoBehaviour
 				    successfulScans++;
 				    earned += totalValue / items.Count;
 				    skillCheckUI.Hide();
+				    beep.Play();
 			    }
 			
 			    // If player failed (pressed outside zone)
 			    if (!skillCheckUI.GetResult() && Input.GetKeyDown(KeyCode.E))
 			    {
+			    	wrong.Play();
 				    skillCheckUI.Stop();
 				    yield return new WaitForSeconds(2f);
 				    if (isHardScan)
@@ -143,5 +149,6 @@ public class ScanMiniGame : MonoBehaviour
 		onComplete?.Invoke(payout);
 		
 		player.SetControl(true);
+		sale.Play();
 	}
 }

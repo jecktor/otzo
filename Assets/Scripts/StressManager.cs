@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using System.Collections.Generic;
 using System.Collections;
 using TMPro;
+using EasyPeasyFirstPersonController;
 
 public class CustomerStressManager : MonoBehaviour
 {
@@ -22,7 +23,14 @@ public class CustomerStressManager : MonoBehaviour
 
 	private float stressLevel = 0f;
 	private bool meltdownTriggered = false;
+	private bool timerPlaying;
+	
 	private Image fillImage;
+	public FirstPersonController player;
+	
+	public AudioSource timer;
+	public AudioSource fail;
+	
 
 	void Start()
 	{
@@ -40,6 +48,12 @@ public class CustomerStressManager : MonoBehaviour
 
 		if (qm.IsQueueFull && cs.IsStoreFull)
 		{
+			if (!timerPlaying && timer != null)
+			{
+				timer.Play();
+				timerPlaying = true;
+			}
+
 			stressLevel += Time.deltaTime;
 			if (stressLevel >= maxStress)
 			{
@@ -49,6 +63,11 @@ public class CustomerStressManager : MonoBehaviour
 		}
 		else
 		{
+			if (timerPlaying && timer != null)
+			{
+				timer.Stop();
+				timerPlaying = false;
+			}
 			// relieve stress when queue is under control
 			stressLevel = Mathf.Max(0f, stressLevel - Time.deltaTime * 1.5f);
 		}
@@ -73,9 +92,13 @@ public class CustomerStressManager : MonoBehaviour
 	IEnumerator TriggerMeltdown()
 	{
 		Debug.Log("Customer meltdown! Everyone leaves!");
+		player.SetControl(true);
+		
+		fail.Play();
+		
 		stressLevel = maxStress;
 		UpdateUI();
-		mt.text = "\""  +  mentadas[Random.Range(0, mentadas.Length)] + "\"";
+		mt.text = mentadas[Random.Range(0, mentadas.Length)];
 
 		smg.Stop();
 		cs.ClearAllCustomers();

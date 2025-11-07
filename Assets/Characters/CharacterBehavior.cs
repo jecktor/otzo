@@ -29,6 +29,7 @@ public class CustomerBehavior : MonoBehaviour
 	public float playerMoney = 0f;
 	
 	public ScanMiniGame scanMiniGame;
+	public AudioSource groceries;
 
 	NavMeshAgent agent;
 	Animator anim;
@@ -165,6 +166,7 @@ public class CustomerBehavior : MonoBehaviour
 		// Play the checkout animation
 		anim.SetTrigger("PickUp");
 		yield return new WaitForSeconds(3f);
+		groceries.Play();
 
 		// Show groceries and calculate total
 		float payment = 0f;
