@@ -2310,11 +2310,10 @@ MonoBehaviour:
   warningColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   dangerColor: {r: 1, g: 0, b: 0, a: 1}
   mentadas:
-  - Con esa velocidad mejor te escaneo yo con la mirada.
-  - "Tienes la energ\xEDa de una pila del tianguis."
-  - "Nom\xE1s te falta el letrero de \u2018vuelvo en 5 minutos\u2019 pa\u2019 estar
-    completo, mi jefe."
-  - "M\xE1s lento que WiFi de Telmex, mi buen."
+  - Los clientes se hartaron.
+  - "Otra fila perdida, otro d\xEDa menos."
+  - El gerente no va a estar contento.
+  - "Silencio en los pasillos\u2026 otra derrota laboral."
   player: {fileID: 1271254573}
   timer: {fileID: 477122230}
   fail: {fileID: 1283869103}
