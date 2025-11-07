@@ -15,24 +15,57 @@ public class CustomerSpawner : MonoBehaviour
 
 	[Tooltip("Time (seconds) between spawns")]
 	public float spawnRate = 3f;
+	
+	[Tooltip("Time (seconds) penalty")]
+	public float meltdownPenalty = 10f;
 
 	[Header("Customer setup")]
 	public Transform[] storeLocations;   // assign shelf points
 	public Transform cashRegister;       // assign register object
 	public Transform exit;               // assign exit
 	public GroceryManager groceryManager; // ✅ new reference
+	public ScanMiniGame scanMiniGame;
 
 	private List<GameObject> activeCustomers = new List<GameObject>();
 	private float timer;
+	private float penaltyTimer;
+	private bool meltdownInProgress;
+
+	public bool IsMeltdownInProgress => meltdownInProgress;
+
+	public void ClearAllCustomers()
+	{
+		CustomerBehavior[] customers = FindObjectsOfType<CustomerBehavior>();
+
+		foreach (var customer in customers)
+		{
+			if (customer != null)
+				customer.StartCoroutine(customer.Leave());
+		}
+		
+		meltdownInProgress = true;
+	}
+
+	public bool IsStoreFull => activeCustomers.Count == maxCustomersInStore;
 
 	void Update()
 	{
 		// Clean up nulls (customers destroyed after exiting)
 		activeCustomers.RemoveAll(c => c == null);
 
+		if (meltdownInProgress)
+		{
+			penaltyTimer += Time.deltaTime;
+			if (penaltyTimer >= meltdownPenalty)
+			{
+				meltdownInProgress = false;
+				penaltyTimer = 0f;
+			}
+		}
+
 		// Timer logic
 		timer += Time.deltaTime;
-		if (timer >= spawnRate && activeCustomers.Count < maxCustomersInStore)
+		if (!meltdownInProgress && timer >= spawnRate && activeCustomers.Count < maxCustomersInStore)
 		{
 			SpawnCustomer();
 			timer = 0f;
@@ -54,6 +87,7 @@ public class CustomerSpawner : MonoBehaviour
 			behavior.cashRegister = cashRegister;
 			behavior.exit = exit;
 			behavior.groceryManager = groceryManager; // ✅ add this
+			behavior.scanMiniGame = scanMiniGame;
 		}
 	}
 }
