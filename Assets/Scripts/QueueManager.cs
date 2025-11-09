@@ -1,69 +1,98 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
+using UnityEngine.AI;
+using System.Collections;
 
 public class QueueManager : MonoBehaviour
 {
 	[Header("Queue slots (front to back)")]
 	public Transform[] queueSlots;
 
-	// Actual queue of customers (front = 0)
-	private List<CustomerBehavior> queue = new List<CustomerBehavior>();
+	[Header("Store pickup spots (unique per customer)")]
+	public Transform[] storeSpots; // assign shelf/pickup points here
 
-	/// <summary>
-	/// Called by a customer when they finish shopping and head to checkout.
-	/// </summary>
+	// ----- Queue data -----
+	private readonly List<CustomerBehavior> queue = new List<CustomerBehavior>();
+	public bool IsQueueFull => queue.Count >= queueSlots.Length;
+	public int GetQueueCount() => queue.Count;
+
+	// ----- Store spot reservations -----
+	private readonly Queue<Transform> availableSpots = new Queue<Transform>();
+	private readonly Dictionary<CustomerBehavior, Transform> spotByCustomer = new Dictionary<CustomerBehavior, Transform>();
+
+	void Awake()
+	{
+		if (storeSpots != null)
+			foreach (var t in storeSpots)
+				if (t != null) availableSpots.Enqueue(t);
+	}
+
+	// -------- STORE SPOTS --------
+	public Transform RequestStoreSpot(CustomerBehavior customer)
+	{
+		if (spotByCustomer.TryGetValue(customer, out var existing)) return existing;
+		if (availableSpots.Count == 0) return null;
+
+		var spot = availableSpots.Dequeue();
+		spotByCustomer[customer] = spot;
+		return spot;
+	}
+
+	public void ReleaseStoreSpot(CustomerBehavior customer)
+	{
+		if (spotByCustomer.TryGetValue(customer, out var spot) && spot != null)
+		{
+			spotByCustomer.Remove(customer);
+			availableSpots.Enqueue(spot);
+		}
+	}
+
+	// -------- QUEUE --------
 	public Transform RequestSlot(CustomerBehavior customer)
 	{
-		// Add to queue if not already present
-		if (!queue.Contains(customer))
-			queue.Add(customer);
-
+		if (!queue.Contains(customer)) queue.Add(customer);
 		int index = Mathf.Min(queue.Count - 1, queueSlots.Length - 1);
 		return queueSlots[index];
 	}
 
-	/// <summary>
-	/// Called when the first customer in line finishes checkout and leaves.
-	/// </summary>
 	public void OnCustomerFinished(CustomerBehavior finishedCustomer)
 	{
-		if (!queue.Contains(finishedCustomer))
-			return;
+		ReleaseStoreSpot(finishedCustomer); // safety
+		if (!queue.Contains(finishedCustomer)) return;
 
-		// Remove the finished customer
 		queue.Remove(finishedCustomer);
-
-		// Shift everyone else forward
 		UpdateQueuePositions();
 	}
 
-	/// <summary>
-	/// Returns the current position in line (0 = front).
-	/// </summary>
-	public int GetPositionInQueue(CustomerBehavior c)
-	{
-		return queue.IndexOf(c);
-	}
+	public int GetPositionInQueue(CustomerBehavior c) => queue.IndexOf(c);
 
-	/// <summary>
-	/// Makes everyone move up one slot when someone leaves.
-	/// </summary>
 	private void UpdateQueuePositions()
 	{
 		for (int i = 0; i < queue.Count; i++)
 		{
-			CustomerBehavior customer = queue[i];
-			if (customer != null)
-			{
-				// Clamp to available slot range
-				int slotIndex = Mathf.Min(i, queueSlots.Length - 1);
-				Transform newSlot = queueSlots[slotIndex];
+			var customer = queue[i];
+			if (!customer) continue;
 
-				// Send them to the new position
-				var agent = customer.GetComponent<UnityEngine.AI.NavMeshAgent>();
-				if (agent != null)
-					agent.SetDestination(newSlot.position);
-			}
+			int slotIndex = Mathf.Min(i, queueSlots.Length - 1);
+			var newSlot = queueSlots[slotIndex];
+
+			var agent = customer.GetComponent<NavMeshAgent>();
+			if (agent) agent.SetDestination(newSlot.position);
 		}
+	}
+
+	// ------- Bulk clear helpers (optional) -------
+	public IEnumerator ClearAllCustomers()
+	{
+		var customers = GameObject.FindObjectsOfType<CustomerBehavior>();
+		foreach (var c in customers)
+			if (c) yield return c.StartCoroutine(c.Leave());
+	}
+
+	public void ClearAllCustomersInstant()
+	{
+		var customers = GameObject.FindObjectsOfType<CustomerBehavior>();
+		foreach (var c in customers)
+			if (c) c.StartCoroutine(c.Leave());
 	}
 }
