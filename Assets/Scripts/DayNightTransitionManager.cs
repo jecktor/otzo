@@ -43,7 +43,7 @@ public class DayNightTransitionManager : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
-            DontDestroyOnLoad(gameObject);
+            // No DontDestroyOnLoad aquí - será manejado por el sistema persistente
             InitializeTransitionManager();
         }
         else
@@ -137,13 +137,12 @@ public class DayNightTransitionManager : MonoBehaviour
     void ShowDialog()
     {
         dialogShown = true;
-
         StartCoroutine(ShowDialogAfterFrame());
     }
 
     IEnumerator ShowDialogAfterFrame()
     {
-        yield return null; 
+        yield return null;
 
         DialogSystem dialogSystem = FindFirstObjectByType<DialogSystem>();
 
@@ -174,10 +173,36 @@ public class DayNightTransitionManager : MonoBehaviour
 
         sceneChanged = true;
 
-        if (GameClock.Instance != null)
+        // CAMBIO AQUÍ: Acceder a través de GameManagerPersistent
+        if (GameManagerPersistent.Instance != null && GameManagerPersistent.Instance.gameClock != null)
         {
-            GameClock.Instance.ChangeToNightScene();
+            GameManagerPersistent.Instance.gameClock.ChangeToNightScene();
         }
+        else
+        {
+            Debug.LogError("No se puede cambiar a escena nocturna: GameClock no disponible");
+
+            // Fallback: cambiar escena directamente
+            string nightScene = "room";
+            if (IsSceneInBuildSettings(nightScene))
+            {
+                UnityEngine.SceneManagement.SceneManager.LoadScene(nightScene);
+            }
+        }
+    }
+
+    // Método auxiliar para verificar escenas en build settings
+    private bool IsSceneInBuildSettings(string sceneName)
+    {
+        for (int i = 0; i < UnityEngine.SceneManagement.SceneManager.sceneCountInBuildSettings; i++)
+        {
+            string scenePath = UnityEngine.SceneManagement.SceneUtility.GetScenePathByBuildIndex(i);
+            string buildSceneName = System.IO.Path.GetFileNameWithoutExtension(scenePath);
+
+            if (buildSceneName == sceneName)
+                return true;
+        }
+        return false;
     }
 
     string[] GetDayEndMessages()

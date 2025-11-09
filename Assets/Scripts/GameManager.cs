@@ -12,7 +12,7 @@ public class GameManager : MonoBehaviour
         Paused
     }
 
-    public GameState CurrentState { get; private set; } = GameState.MainMenu;
+    public GameState CurrentState { get; private set; } = GameState.Playing;
 
     void Awake()
     {
@@ -20,37 +20,10 @@ public class GameManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            SceneManager.sceneLoaded += OnSceneLoaded;
         }
         else
         {
             Destroy(gameObject);
-        }
-    }
-
-    void OnSceneLoaded(Scene scene, LoadSceneMode mode)
-    {
-        Debug.Log($"📁 Escena cargada: {scene.name}");
-
-        if (scene.name == "MainMenu")
-        {
-            CurrentState = GameState.MainMenu;
-            if (UIManager.Instance != null)
-                UIManager.Instance.ShowMainMenu();
-
-            // Mostrar cursor en menú principal
-            Cursor.visible = true;
-            Cursor.lockState = CursorLockMode.None;
-        }
-        else if (scene.name == "SampleScene" || scene.name == "room")
-        {
-            CurrentState = GameState.Playing;
-            if (UIManager.Instance != null)
-                UIManager.Instance.HideAllMenus();
-
-            // Ocultar cursor en juego
-            Cursor.visible = false;
-            Cursor.lockState = CursorLockMode.Locked;
         }
     }
 
@@ -82,9 +55,9 @@ public class GameManager : MonoBehaviour
 
     public void PauseGame()
     {
-        Debug.Log("⏸️ Pausando juego (sin detener el tiempo)");
+        Debug.Log("⏸️ Pausando juego");
         CurrentState = GameState.Paused;
-        // NO pausamos el tiempo del juego - sigue corriendo normalmente
+
         if (UIManager.Instance != null)
             UIManager.Instance.ShowPauseMenu();
     }
@@ -93,7 +66,7 @@ public class GameManager : MonoBehaviour
     {
         Debug.Log("▶️ Reanudando juego");
         CurrentState = GameState.Playing;
-        // El tiempo nunca se pausó, así que no necesitamos reanudarlo
+
         if (UIManager.Instance != null)
             UIManager.Instance.HideAllMenus();
     }
@@ -114,13 +87,5 @@ public class GameManager : MonoBehaviour
 #else
         Application.Quit();
 #endif
-    }
-
-    void OnDestroy()
-    {
-        if (Instance == this)
-        {
-            SceneManager.sceneLoaded -= OnSceneLoaded;
-        }
     }
 }
