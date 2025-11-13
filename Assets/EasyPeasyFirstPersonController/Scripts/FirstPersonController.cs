@@ -3,6 +3,7 @@
     using System;
     using System.Collections;
     using UnityEngine;
+    using UnityEngine.SceneManagement;
 
     public partial class FirstPersonController : MonoBehaviour
     {
@@ -71,8 +72,19 @@
 
         public float CurrentCameraHeight => isCrouching || isSliding ? crouchCameraHeight : originalCameraParentHeight;
 
+
+        private static FirstPersonController instance;
+        private string[] persistentScenes = { "SampleScene", "room" };
+
+        private Vector3 roomPosition = new Vector3(-2f, 1f, -2f);
+        private Vector3 sampleScenePosition = new Vector3(9.7f, 1.3f, -13f);
+
+
         private void Awake()
         {
+
+            HandlePersistence();
+
             characterController = GetComponent<CharacterController>();
             cam = playerCamera.GetComponent<Camera>();
             originalHeight = characterController.height;
@@ -92,6 +104,104 @@
             rotY = playerCamera.localRotation.eulerAngles.x;
             xVelocity = rotX;
             yVelocity = rotY;
+        }
+        private void OnEnable()
+        {
+            SceneManager.sceneLoaded += OnSceneLoaded;
+        }
+
+        private void OnDisable()
+        {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+        }
+
+        private void HandlePersistence()
+        {
+            if (instance != null && instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+
+            instance = this;
+
+            string currentSceneName = SceneManager.GetActiveScene().name;
+
+            bool shouldPersist = false;
+            foreach (string sceneName in persistentScenes)
+            {
+                if (currentSceneName == sceneName)
+                {
+                    shouldPersist = true;
+                    break;
+                }
+            }
+
+            if (shouldPersist)
+            {
+                DontDestroyOnLoad(gameObject);
+
+                if (currentSceneName == "room")
+                {
+                    StartCoroutine(SetPositionInRoomCoroutine());
+                }
+                else if (currentSceneName == "SampleScene")
+                {
+                    StartCoroutine(SetPositionInSampleSceneCoroutine());
+                }
+            }
+        }
+
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            if (scene.name == "room")
+            {
+                StartCoroutine(SetPositionInRoomCoroutine());
+            }
+            else if (scene.name == "SampleScene")
+            {
+                StartCoroutine(SetPositionInSampleSceneCoroutine());
+            }
+        }
+
+        private IEnumerator SetPositionInRoomCoroutine()
+        {
+            yield return new WaitForEndOfFrame();
+
+            if (characterController != null)
+            {
+                characterController.enabled = false;
+            }
+
+            transform.position = roomPosition;
+
+            yield return new WaitForEndOfFrame();
+
+            if (characterController != null)
+            {
+                characterController.enabled = true;
+            }
+
+        }
+
+        private IEnumerator SetPositionInSampleSceneCoroutine()
+        {
+            yield return new WaitForEndOfFrame();
+
+            if (characterController != null)
+            {
+                characterController.enabled = false;
+            }
+
+            transform.position = sampleScenePosition;
+
+            yield return new WaitForEndOfFrame();
+
+            if (characterController != null)
+            {
+                characterController.enabled = true;
+            }
+
         }
 
         private void Update()

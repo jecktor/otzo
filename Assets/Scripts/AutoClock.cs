@@ -40,7 +40,7 @@ public class GameClock : MonoBehaviour
     void Start()
     {
         InitializeClock();
-        EnsureTransitionManagerExists();
+        //EnsureTransitionManagerExists();
         CreateGUIStyles();
     }
 
@@ -59,6 +59,7 @@ public class GameClock : MonoBehaviour
         sleepStyle.fontStyle = FontStyle.Bold;
     }
 
+    /*
     void EnsureTransitionManagerExists()
     {
         DayNightTransitionManager existingManager = FindFirstObjectByType<DayNightTransitionManager>();
@@ -69,6 +70,7 @@ public class GameClock : MonoBehaviour
             Debug.Log("DayNightTransitionManager creado automáticamente");
         }
     }
+    */
 
     void InitializeClock()
     {
@@ -84,12 +86,10 @@ public class GameClock : MonoBehaviour
 
     void Update()
     {
-        // Solo actualizar si está habilitado
         if (!enabled) return;
 
-        // Pausar durante transiciones
-        if (DayNightTransitionManager.Instance != null && DayNightTransitionManager.Instance.IsTransitioning)
-            return;
+        //if (DayNightTransitionManager.Instance != null && DayNightTransitionManager.Instance.IsTransitioning)
+        //    return;
 
         float deltaTime = Time.deltaTime;
         gameTime += deltaTime * clockTimeMultiplier;
@@ -137,10 +137,14 @@ public class GameClock : MonoBehaviour
             fivePMTriggered = true;
             OnFivePMReached?.Invoke();
 
-            if (enableDayNightTransitions && DayNightTransitionManager.Instance != null)
-            {
-                DayNightTransitionManager.Instance.StartDayEndTransition();
-            }
+            //if (enableDayNightTransitions && DayNightTransitionManager.Instance != null)
+            //{
+            //    DayNightTransitionManager.Instance.StartDayEndTransition();
+            //}
+            //else
+            //{
+            ChangeToNightScene();
+            //}
         }
 
         if (currentHour == 17 && currentMinute == 1 && fivePMTriggered)
@@ -151,30 +155,22 @@ public class GameClock : MonoBehaviour
 
     void OnGUI()
     {
-        // Solo mostrar si está habilitado y no estamos en transición
         if (!enabled) return;
-        if (DayNightTransitionManager.Instance != null && DayNightTransitionManager.Instance.IsTransitioning)
-            return;
+        //if (DayNightTransitionManager.Instance != null && DayNightTransitionManager.Instance.IsTransitioning)
+        //    return;
 
-        // Mostrar reloj
         string timeString = $"Día {currentDay} - {currentHour:00}:{currentMinute:00}";
         GUI.Label(new Rect(Screen.width - 300, 10, 290, 30), timeString, clockStyle);
 
-        // Mostrar información de sueño si está disponible
         if (GameManagerPersistent.Instance != null && GameManagerPersistent.Instance.sleepSystem != null)
         {
             float sleepQuality = GameManagerPersistent.Instance.sleepSystem.CurrentSleepQuality;
             string sleepString = $"Sueño: {sleepQuality:F1}%";
 
-            // Color basado en la calidad del sueño
             Color sleepColor = GetSleepColor(sleepQuality);
             sleepStyle.normal.textColor = sleepColor;
 
             GUI.Label(new Rect(10, 10, 200, 30), sleepString, sleepStyle);
-
-            // Mostrar estado de fatiga
-            string fatigueStatus = GameManagerPersistent.Instance.sleepSystem.GetFatigueStatus();
-            GUI.Label(new Rect(10, 40, 200, 30), $"Estado: {fatigueStatus}", sleepStyle);
         }
     }
 
@@ -182,7 +178,7 @@ public class GameClock : MonoBehaviour
     {
         if (sleepQuality >= 80f) return Color.green;
         if (sleepQuality >= 50f) return Color.yellow;
-        if (sleepQuality >= 30f) return new Color(1f, 0.5f, 0f); // Naranja
+        if (sleepQuality >= 30f) return new Color(1f, 0.5f, 0f);
         return Color.red;
     }
 
@@ -259,10 +255,14 @@ public class GameClock : MonoBehaviour
 
     public void ForceDayEndTransition()
     {
-        if (enableDayNightTransitions && DayNightTransitionManager.Instance != null)
-        {
-            DayNightTransitionManager.Instance.StartDayEndTransition();
-        }
+        //if (enableDayNightTransitions && DayNightTransitionManager.Instance != null)
+        //{
+        //    DayNightTransitionManager.Instance.StartDayEndTransition();
+        //}
+        //else
+        //{
+        ChangeToNightScene();
+        //}
     }
 
     public void SetNightSpeed() => clockTimeMultiplier = nightClockSlowdown;

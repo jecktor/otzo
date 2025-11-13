@@ -13,7 +13,6 @@ public class SleepSystem : MonoBehaviour
     private float lastFatigueUpdateTime = 0f;
     private GameClock gameClock;
 
-    // Styles para UI
     private GUIStyle sleepStyle;
 
     public float CurrentSleepQuality => currentSleepQuality;
@@ -25,7 +24,6 @@ public class SleepSystem : MonoBehaviour
         lastFatigueUpdateTime = Time.time;
         CreateGUIStyle();
 
-        // Obtener referencia al GameClock
         if (GameManagerPersistent.Instance != null)
         {
             gameClock = GameManagerPersistent.Instance.gameClock;
@@ -49,7 +47,6 @@ public class SleepSystem : MonoBehaviour
     {
         if (!enabled) return;
 
-        // Pausar durante transiciones
         if (DayNightTransitionManager.Instance != null && DayNightTransitionManager.Instance.IsTransitioning)
             return;
 
@@ -65,7 +62,6 @@ public class SleepSystem : MonoBehaviour
         {
             float fatigueRate = CalculateFatigueRate();
 
-            // Aumentar fatiga si es de noche
             if (gameClock != null && gameClock.IsNightScene)
             {
                 fatigueRate *= 1.5f;
@@ -97,14 +93,11 @@ public class SleepSystem : MonoBehaviour
         if (DayNightTransitionManager.Instance != null && DayNightTransitionManager.Instance.IsTransitioning)
             return;
 
-        // Mostrar solo el porcentaje de sueño
         string sleepString = $"Sueño: {currentSleepQuality:F1}%";
 
-        // Color basado en la calidad del sueño
         Color sleepColor = GetSleepColor(currentSleepQuality);
         sleepStyle.normal.textColor = sleepColor;
 
-        // Mostrar en pantalla
         GUI.Label(new Rect(10, 10, 200, 30), sleepString, sleepStyle);
     }
 
@@ -112,7 +105,7 @@ public class SleepSystem : MonoBehaviour
     {
         if (sleepQuality >= 80f) return Color.green;
         if (sleepQuality >= 50f) return Color.yellow;
-        if (sleepQuality >= 30f) return new Color(1f, 0.5f, 0f); // Naranja
+        if (sleepQuality >= 30f) return new Color(1f, 0.5f, 0f);
         return Color.red;
     }
 
@@ -122,7 +115,6 @@ public class SleepSystem : MonoBehaviour
         {
             int hourSlept = gameClock.CurrentHour;
             currentSleepQuality = CalculateSleepQuality(hourSlept);
-            Debug.Log($"💤 SleepSystem: Durmiendo a las {hourSlept}:00 - Calidad: {currentSleepQuality:F1}%");
         }
         else
         {

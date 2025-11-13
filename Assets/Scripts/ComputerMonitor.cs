@@ -1,6 +1,7 @@
-﻿using UnityEngine;
-using UnityEngine.UI;
+﻿using EasyPeasyFirstPersonController;
 using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
 
 public class ComputerMonitor : MonoBehaviour
 {
@@ -24,7 +25,7 @@ public class ComputerMonitor : MonoBehaviour
     private Vector3 originalCameraPosition;
     private Quaternion originalCameraRotation;
     private bool isUsingComputer = false;
-    private MainCharacterScript mainCharacterScript;
+    private FirstPersonController playerController;
     private GUIStyle guiStyle;
     private Texture2D backgroundTex;
 
@@ -33,14 +34,14 @@ public class ComputerMonitor : MonoBehaviour
     private GameObject brotherPCPanel;
     private Text moneyText;
 
-    private int playerMoney = 2500;
     private List<ShopItem> shopItems = new List<ShopItem>();
     private List<ShopItem> brotherPCItems = new List<ShopItem>();
-    private List<string> purchasedBrotherItems = new List<string>();
 
     private GameObject tiendaBtn;
     private GameObject pcBtn;
     private bool isShopActive = true;
+
+    public bool IsUsingComputer => isUsingComputer;
 
     void Start()
     {
@@ -50,6 +51,8 @@ public class ComputerMonitor : MonoBehaviour
         CreateGUIStyle();
         InitializeShopData();
         EnsureShopManagerExists();
+
+        Debug.Log($"💰 Dinero inicial en ComputerMonitor: ${PlayerWallet.totalMoney}");
     }
 
     void EnsureShopManagerExists()
@@ -91,6 +94,26 @@ public class ComputerMonitor : MonoBehaviour
         {
             ExitComputer();
         }
+
+        // Actualizar dinero en tiempo real mientras se usa la computadora
+        if (isUsingComputer && moneyText != null)
+        {
+            UpdateMoneyText();
+        }
+
+        if (isUsingComputer)
+        {
+            if (Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1))
+            {
+                ShowShopPanel();
+                UpdateNavButtons(true);
+            }
+            else if (Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2))
+            {
+                ShowBrotherPCPanel();
+                UpdateNavButtons(false);
+            }
+        }
     }
 
     void InitializeShopData()
@@ -101,11 +124,11 @@ public class ComputerMonitor : MonoBehaviour
         shopItems.Add(new ShopItem("📱 Marketing Digital", 1500, "Próximamente"));
         shopItems.Add(new ShopItem("🚚 Servicio a Domicilio", 900, "Próximamente"));
 
-        brotherPCItems.Add(new ShopItem("🎮 Tarjeta Gráfica RTX", 800, "Mejora el rendimiento gaming"));
-        brotherPCItems.Add(new ShopItem("💾 Memoria RAM 16GB", 450, "16GB DDR4 adicionales"));
-        brotherPCItems.Add(new ShopItem("⚡ SSD NVMe 1TB", 600, "Velocidad de carga ultra rápida"));
-        brotherPCItems.Add(new ShopItem("🖥️ Monitor 4K 27\"", 1200, "Calidad de imagen premium"));
-        brotherPCItems.Add(new ShopItem("⌨️ Teclado Mecánico", 350, "Mejor respuesta táctil"));
+        brotherPCItems.Add(new ShopItem("🎮 Tarjeta Gráfica RTX", 800, "Próximamente"));
+        brotherPCItems.Add(new ShopItem("💾 Memoria RAM 16GB", 450, "Próximamente"));
+        brotherPCItems.Add(new ShopItem("⚡ SSD NVMe 1TB", 600, "Próximamente"));
+        brotherPCItems.Add(new ShopItem("🖥️ Monitor 4K 27\"", 1200, "Próximamente"));
+        brotherPCItems.Add(new ShopItem("⌨️ Teclado Mecánico", 350, "Próximamente"));
     }
 
     void CreateComputerUI()
@@ -128,24 +151,28 @@ public class ComputerMonitor : MonoBehaviour
         computerCanvas.AddComponent<GraphicRaycaster>();
 
         GameObject mainContainer = CreatePanel(computerCanvas.transform, "MainContainer",
-            new Vector2(0, 0), new Vector2(1920, 1080), backgroundColor);
+            Vector2.zero, Vector2.zero, backgroundColor);
+
+        RectTransform mainRect = mainContainer.GetComponent<RectTransform>();
+        mainRect.anchorMin = Vector2.zero;
+        mainRect.anchorMax = Vector2.one;
+        mainRect.offsetMin = Vector2.zero;
+        mainRect.offsetMax = Vector2.zero;
 
         GameObject headerPanel = CreatePanel(mainContainer.transform, "Header",
-            new Vector2(0, 450), new Vector2(1920, 120), primaryColor);
+            new Vector2(0, 450), new Vector2(0, 120), primaryColor);
 
         RectTransform headerRT = headerPanel.GetComponent<RectTransform>();
-        headerRT.anchorMin = new Vector2(0, 0.5f);
-        headerRT.anchorMax = new Vector2(1, 0.5f);
-        headerRT.anchoredPosition = new Vector2(0, 450);
+        headerRT.anchorMin = new Vector2(0, 1f);
+        headerRT.anchorMax = new Vector2(1, 1f);
+        headerRT.anchoredPosition = new Vector2(0, -60);
         headerRT.sizeDelta = new Vector2(0, 120);
 
         CreateText(headerPanel.transform, "AppTitle", "🛍️ MEJORAS TIENDA", 42,
-            new Vector2(-700, 20), new Vector2(500, 50), TextAnchor.MiddleLeft, Color.white);
+            new Vector2(-700, 0), new Vector2(500, 50), TextAnchor.MiddleLeft, Color.white);
 
-        CreateText(headerPanel.transform, "TimeInfo", "1:34 (Noche - Reloj U.5x)", 24,
-            new Vector2(-700, -30), new Vector2(500, 35), TextAnchor.MiddleLeft, Color.white);
-
-        moneyText = CreateText(headerPanel.transform, "MoneyText", $"💰 Saldo: ${playerMoney}", 32,
+        // USANDO LA VARIABLE ESTÁTICA DIRECTAMENTE
+        moneyText = CreateText(headerPanel.transform, "MoneyText", $"💰 Saldo: ${PlayerWallet.totalMoney:F2}", 32,
             new Vector2(500, 0), new Vector2(400, 50), TextAnchor.MiddleRight, Color.white).GetComponent<Text>();
 
         CreateButton(headerPanel.transform, "CloseBtn", "✕", 36,
@@ -170,8 +197,11 @@ public class ComputerMonitor : MonoBehaviour
         CreatePanel(mainContainer.transform, "Divider",
             new Vector2(0, 240), new Vector2(1600, 3), new Color(0.7f, 0.7f, 0.7f, 1f));
 
-        CreateShopPanel(mainContainer.transform);
-        CreateBrotherPCPanel(mainContainer.transform);
+        GameObject contentContainer = CreatePanel(mainContainer.transform, "ContentContainer",
+            new Vector2(0, -50), new Vector2(1800, 700), new Color(0, 0, 0, 0));
+
+        CreateShopPanel(contentContainer.transform);
+        CreateBrotherPCPanel(contentContainer.transform);
 
         ShowShopPanel();
         UpdateNavButtons(true);
@@ -192,77 +222,16 @@ public class ComputerMonitor : MonoBehaviour
             if (shopActive)
             {
                 tiendaImg.color = primaryColor;
-                pcImg.color = new Color(0.9f, 0.9f, 0.9f, 1f);
-
                 tiendaText.color = Color.white;
+                pcImg.color = new Color(0.8f, 0.8f, 0.8f, 1f);
                 pcText.color = textGray;
-
-                Button tiendaButton = tiendaBtn.GetComponent<Button>();
-                Button pcButton = pcBtn.GetComponent<Button>();
-
-                if (tiendaButton != null)
-                {
-                    ColorBlock tiendaColors = tiendaButton.colors;
-                    tiendaColors.normalColor = primaryColor;
-                    tiendaColors.highlightedColor = Color.Lerp(primaryColor, Color.white, 0.2f);
-                    tiendaColors.pressedColor = Color.Lerp(primaryColor, Color.black, 0.2f);
-                    tiendaButton.colors = tiendaColors;
-                }
-
-                if (pcButton != null)
-                {
-                    ColorBlock pcColors = pcButton.colors;
-                    pcColors.normalColor = new Color(0.9f, 0.9f, 0.9f, 1f);
-                    pcColors.highlightedColor = Color.Lerp(new Color(0.9f, 0.9f, 0.9f, 1f), Color.white, 0.2f);
-                    pcColors.pressedColor = Color.Lerp(new Color(0.9f, 0.9f, 0.9f, 1f), Color.black, 0.2f);
-                    pcButton.colors = pcColors;
-                }
-
-                AddBeautifulShadow(tiendaBtn, new Color(0, 0, 0, 0.2f));
-                RemoveShadow(pcBtn);
             }
             else
             {
-                tiendaImg.color = new Color(0.9f, 0.9f, 0.9f, 1f);
-                pcImg.color = primaryColor;
-
+                tiendaImg.color = new Color(0.8f, 0.8f, 0.8f, 1f);
                 tiendaText.color = textGray;
+                pcImg.color = primaryColor;
                 pcText.color = Color.white;
-
-                Button tiendaButton = tiendaBtn.GetComponent<Button>();
-                Button pcButton = pcBtn.GetComponent<Button>();
-
-                if (tiendaButton != null)
-                {
-                    ColorBlock tiendaColors = tiendaButton.colors;
-                    tiendaColors.normalColor = new Color(0.9f, 0.9f, 0.9f, 1f);
-                    tiendaColors.highlightedColor = Color.Lerp(new Color(0.9f, 0.9f, 0.9f, 1f), Color.white, 0.2f);
-                    tiendaColors.pressedColor = Color.Lerp(new Color(0.9f, 0.9f, 0.9f, 1f), Color.black, 0.2f);
-                    tiendaButton.colors = tiendaColors;
-                }
-
-                if (pcButton != null)
-                {
-                    ColorBlock pcColors = pcButton.colors;
-                    pcColors.normalColor = primaryColor;
-                    pcColors.highlightedColor = Color.Lerp(primaryColor, Color.white, 0.2f);
-                    pcColors.pressedColor = Color.Lerp(primaryColor, Color.black, 0.2f);
-                    pcButton.colors = pcColors;
-                }
-
-                AddBeautifulShadow(pcBtn, new Color(0, 0, 0, 0.2f));
-                RemoveShadow(tiendaBtn);
-            }
-        }
-    }
-
-    void RemoveShadow(GameObject target)
-    {
-        foreach (Transform child in target.transform.parent)
-        {
-            if (child.name == "BeautifulShadow" && child.GetComponent<RectTransform>().anchoredPosition == target.GetComponent<RectTransform>().anchoredPosition + new Vector2(4, -4))
-            {
-                Destroy(child.gameObject);
             }
         }
     }
@@ -270,154 +239,120 @@ public class ComputerMonitor : MonoBehaviour
     void CreateShopPanel(Transform parent)
     {
         shopPanel = CreatePanel(parent, "ShopPanel",
-            new Vector2(0, -50), new Vector2(1800, 700), new Color(0, 0, 0, 0));
+            new Vector2(0, 0), new Vector2(1800, 700), new Color(0, 0, 0, 0));
 
         CreateText(shopPanel.transform, "SectionTitle", "🌟 Mejoras Disponibles para tu Tienda", 34,
             new Vector2(0, 250), new Vector2(900, 50), TextAnchor.MiddleCenter, textDark);
+
         float startY = 150;
         float spacing = 140;
 
         for (int i = 0; i < shopItems.Count; i++)
         {
             bool isPurchased = ShopManager.Instance != null && ShopManager.Instance.IsUpgradePurchased(shopItems[i].name);
+            // SOLO la primera mejora está disponible, las demás SIEMPRE bloqueadas
             bool isAvailable = i == 0;
-            CreateBeautifulProductCard(shopPanel.transform, shopItems[i], startY - (i * spacing), isAvailable, isPurchased, false);
+            CreateProductCard(shopPanel.transform, shopItems[i], startY - (i * spacing), isAvailable, isPurchased, false);
         }
 
         shopPanel.SetActive(true);
     }
 
+    // ELIMINÉ el método IsPreviousUpgradePurchased para evitar que se desbloqueen
+
     void CreateBrotherPCPanel(Transform parent)
     {
         brotherPCPanel = CreatePanel(parent, "BrotherPCPanel",
-            new Vector2(0, -50), new Vector2(1800, 700), new Color(0, 0, 0, 0));
+            new Vector2(0, 0), new Vector2(1800, 700), new Color(0, 0, 0, 0));
 
         CreateText(brotherPCPanel.transform, "SectionTitle", "💻 Mejoras para PC del Hermano", 34,
             new Vector2(0, 250), new Vector2(800, 50), TextAnchor.MiddleCenter, textDark);
 
-        float startY = 150;
+        CreateText(brotherPCPanel.transform, "LockedInfo", "🔒 Estas mejoras estarán disponibles próximamente", 28,
+            new Vector2(0, 180), new Vector2(1000, 40), TextAnchor.MiddleCenter, disabledColor);
+
+        float startY = 100;
         float spacing = 140;
 
         for (int i = 0; i < brotherPCItems.Count; i++)
         {
-            bool isPurchased = purchasedBrotherItems.Contains(brotherPCItems[i].name);
-            CreateBeautifulProductCard(brotherPCPanel.transform, brotherPCItems[i], startY - (i * spacing), true, isPurchased, true);
+            bool isPurchased = false;
+            bool isAvailable = false; // Todas las mejoras de PC están bloqueadas
+            CreateProductCard(brotherPCPanel.transform, brotherPCItems[i], startY - (i * spacing), isAvailable, isPurchased, true);
         }
 
         brotherPCPanel.SetActive(false);
     }
 
-    void CreateBeautifulProductCard(Transform parent, ShopItem item, float yPos, bool isAvailable, bool isPurchased, bool isPCItem)
+    void CreateProductCard(Transform parent, ShopItem item, float yPos, bool isAvailable, bool isPurchased, bool isPCItem)
     {
         GameObject card = CreatePanel(parent, $"Product_{item.name}",
             new Vector2(0, yPos), new Vector2(1500, 130), cardColor);
 
-        AddBeautifulShadow(card, new Color(0.9f, 0.9f, 0.9f, 1f));
-
         GameObject infoContainer = CreatePanel(card.transform, "InfoContainer",
             new Vector2(-350, 0), new Vector2(700, 120), new Color(0, 0, 0, 0));
 
-        string nameText = item.name;
-        CreateText(infoContainer.transform, "Name", nameText, 32,
-            new Vector2(0, 25), new Vector2(680, 45), TextAnchor.MiddleLeft, textDark);
+        CreateText(infoContainer.transform, "Name", item.name, 32,
+            new Vector2(0, 25), new Vector2(680, 45), TextAnchor.MiddleLeft, isAvailable ? textDark : new Color(0.6f, 0.6f, 0.6f, 1f));
 
-        string descText = isAvailable ? item.description : "🔒 Disponible próximamente";
+        string descText = item.description;
+
+        // Si está comprada, mostrar texto diferente
+        if (isPurchased)
+        {
+            descText = "✅ Ya comprado - Beneficios activos";
+        }
+        else if (!isAvailable)
+        {
+            descText = "🔒 Próximamente - Disponible en futuras actualizaciones";
+        }
+
         CreateText(infoContainer.transform, "Desc", descText, 20,
             new Vector2(0, -30), new Vector2(680, 35), TextAnchor.MiddleLeft, isAvailable ? textGray : disabledColor);
 
         GameObject actionContainer = CreatePanel(card.transform, "ActionContainer",
             new Vector2(350, 0), new Vector2(300, 120), new Color(0, 0, 0, 0));
 
-        GameObject priceContainer = CreatePanel(actionContainer.transform, "PriceContainer",
-            new Vector2(-90, 0), new Vector2(180, 70), new Color(1f, 0.95f, 0.9f, 1f));
-        AddBeautifulShadow(priceContainer, new Color(1f, 0.8f, 0.6f, 0.3f));
+        if (isAvailable && !isPurchased)
+        {
+            GameObject priceContainer = CreatePanel(actionContainer.transform, "PriceContainer",
+                new Vector2(-90, 0), new Vector2(180, 70), new Color(1f, 0.95f, 0.9f, 1f));
 
-        CreateText(priceContainer.transform, "Price", $"${item.price}", 32,
-            new Vector2(0, 0), new Vector2(170, 60), TextAnchor.MiddleCenter, priceColor);
+            CreateText(priceContainer.transform, "Price", $"${item.price}", 32,
+                new Vector2(0, 0), new Vector2(170, 60), TextAnchor.MiddleCenter, priceColor);
+        }
 
-        // BOTÓN MÁS GRANDE
+        // Botón - ORDEN CORREGIDO
         if (isPurchased)
         {
-            CreateBeautifulButton(actionContainer.transform, "BuyBtn", "✓ COMPRADO", 26,
+            CreateButton(actionContainer.transform, "BuyBtn", "✓ COMPRADO", 26,
                 new Vector2(100, 0), new Vector2(180, 60), () => { },
-                successColor, Color.white, false);
+                successColor, Color.white);
         }
         else if (!isAvailable)
         {
-            CreateBeautifulButton(actionContainer.transform, "BuyBtn", "🔒 PRÓXIMO", 24,
-                new Vector2(100, 0), new Vector2(180, 60), () => { },
-                disabledColor, Color.white, false);
+            CreateButton(actionContainer.transform, "BuyBtn", "🔒 PRÓXIMAMENTE", 20,
+                new Vector2(100, 0), new Vector2(180, 60), () => {
+                    Debug.Log($"🔒 {item.name} estará disponible próximamente.");
+                },
+                disabledColor, Color.white);
         }
         else
         {
-            CreateBeautifulButton(actionContainer.transform, "BuyBtn", "🛒 COMPRAR", 28,
+            CreateButton(actionContainer.transform, "BuyBtn", "🛒 COMPRAR", 28,
                 new Vector2(100, 0), new Vector2(180, 60), () => {
                     if (isPCItem)
                         BuyBrotherPCItem(item);
                     else
                         BuyShopItem(item);
                 },
-                secondaryColor, Color.white, true);
+                secondaryColor, Color.white);
         }
-
-        CreatePanel(card.transform, "CardDivider",
-            new Vector2(0, -65), new Vector2(1450, 2), new Color(0.95f, 0.95f, 0.95f, 1f));
-    }
-
-    void CreateBeautifulButton(Transform parent, string name, string text, int fontSize, Vector2 position, Vector2 size, System.Action action, Color color, Color textColor, bool isInteractive)
-    {
-        GameObject buttonObj = new GameObject(name);
-        buttonObj.transform.SetParent(parent, false);
-
-        RectTransform rt = buttonObj.AddComponent<RectTransform>();
-        rt.anchoredPosition = position;
-        rt.sizeDelta = size;
-
-        Image img = buttonObj.AddComponent<Image>();
-        img.color = color;
-
-        // AGREGAR SOMBRA AL BOTÓN
-        AddBeautifulShadow(buttonObj, new Color(0, 0, 0, 0.2f));
-
-        if (isInteractive)
-        {
-            Button btn = buttonObj.AddComponent<Button>();
-            btn.onClick.AddListener(() => action());
-
-            ColorBlock colors = btn.colors;
-            colors.normalColor = color;
-            colors.highlightedColor = Color.Lerp(color, Color.white, 0.15f);
-            colors.pressedColor = Color.Lerp(color, Color.black, 0.15f);
-            colors.disabledColor = Color.Lerp(color, Color.gray, 0.5f);
-            btn.colors = colors;
-        }
-
-        GameObject textObj = CreateText(buttonObj.transform, "ButtonText", text, fontSize,
-            Vector2.zero, size, TextAnchor.MiddleCenter, textColor);
-
-        Outline textOutline = textObj.AddComponent<Outline>();
-        textOutline.effectColor = new Color(0, 0, 0, 0.3f);
-        textOutline.effectDistance = new Vector2(1, -1);
-    }
-
-    void AddBeautifulShadow(GameObject target, Color shadowColor)
-    {
-        GameObject shadow = new GameObject("BeautifulShadow");
-        shadow.transform.SetParent(target.transform.parent, false);
-
-        RectTransform rt = shadow.AddComponent<RectTransform>();
-        rt.anchoredPosition = target.GetComponent<RectTransform>().anchoredPosition + new Vector2(4, -4);
-        rt.sizeDelta = target.GetComponent<RectTransform>().sizeDelta;
-
-        Image img = shadow.AddComponent<Image>();
-        img.color = shadowColor;
-
-        shadow.transform.SetSiblingIndex(target.transform.GetSiblingIndex());
     }
 
     GameObject CreateNavButton(Transform parent, string name, string text, int fontSize, Vector2 position, Vector2 size, System.Action action, bool isActive)
     {
-        Color btnColor = isActive ? primaryColor : new Color(0.9f, 0.9f, 0.9f, 1f);
+        Color btnColor = isActive ? primaryColor : new Color(0.8f, 0.8f, 0.8f, 1f);
         Color textCol = isActive ? Color.white : textGray;
 
         GameObject buttonObj = new GameObject(name);
@@ -433,13 +368,7 @@ public class ComputerMonitor : MonoBehaviour
         Button btn = buttonObj.AddComponent<Button>();
         btn.onClick.AddListener(() => action());
 
-        ColorBlock colors = btn.colors;
-        colors.normalColor = btnColor;
-        colors.highlightedColor = Color.Lerp(btnColor, Color.white, 0.2f);
-        colors.pressedColor = Color.Lerp(btnColor, Color.black, 0.2f);
-        btn.colors = colors;
-
-        GameObject textObj = CreateText(buttonObj.transform, "ButtonText", text, fontSize,
+        CreateText(buttonObj.transform, "ButtonText", text, fontSize,
             Vector2.zero, size, TextAnchor.MiddleCenter, textCol);
 
         return buttonObj;
@@ -460,14 +389,8 @@ public class ComputerMonitor : MonoBehaviour
         Button btn = buttonObj.AddComponent<Button>();
         btn.onClick.AddListener(() => action());
 
-        GameObject textObj = CreateText(buttonObj.transform, "ButtonText", text, fontSize,
+        CreateText(buttonObj.transform, "ButtonText", text, fontSize,
             Vector2.zero, size, TextAnchor.MiddleCenter, textColor);
-
-        ColorBlock colors = btn.colors;
-        colors.normalColor = color;
-        colors.highlightedColor = Color.Lerp(color, Color.white, 0.2f);
-        colors.pressedColor = Color.Lerp(color, Color.black, 0.2f);
-        btn.colors = colors;
 
         return buttonObj;
     }
@@ -506,9 +429,6 @@ public class ComputerMonitor : MonoBehaviour
 
         text.horizontalOverflow = HorizontalWrapMode.Wrap;
         text.verticalOverflow = VerticalWrapMode.Truncate;
-        text.resizeTextForBestFit = true;
-        text.resizeTextMinSize = 12;
-        text.resizeTextMaxSize = fontSize;
 
         return textObj;
     }
@@ -527,49 +447,106 @@ public class ComputerMonitor : MonoBehaviour
 
     void BuyShopItem(ShopItem item)
     {
-        if (playerMoney >= item.price && ShopManager.Instance != null)
+        // SOLO permitir comprar si es la primera mejora
+        if (item.name != "🌟 Mejorar Actitud Clientes")
         {
-            playerMoney -= item.price;
-            UpdateMoneyText();
-
-            ShopManager.Instance.PurchaseUpgrade(item.name);
-
-            CreateComputerUI();
-            computerCanvas.SetActive(true);
-            ShowShopPanel();
-            UpdateNavButtons(true);
+            Debug.Log($"🔒 {item.name} está bloqueada permanentemente.");
+            return;
         }
+
+        // VERIFICAR PRIMERO si ya está comprado
+        if (ShopManager.Instance != null && ShopManager.Instance.IsUpgradePurchased(item.name))
+        {
+            Debug.Log($"⚠️ {item.name} ya está comprado. No se puede comprar de nuevo.");
+            return;
+        }
+
+        // VERIFICAR si tiene suficiente dinero
+        if (PlayerWallet.totalMoney >= item.price)
+        {
+            // Buscar el PlayerWallet para usar su método SpendMoney
+            PlayerWallet wallet = FindObjectOfType<PlayerWallet>();
+            if (wallet != null)
+            {
+                if (wallet.SpendMoney(item.price))
+                {
+                    PurchaseSuccess(item);
+                }
+            }
+            else
+            {
+                // Fallback: restar directamente si no encuentra el Wallet
+                PlayerWallet.totalMoney -= item.price;
+                PlayerPrefs.SetFloat("PlayerMoney", PlayerWallet.totalMoney);
+                PlayerPrefs.Save();
+                PurchaseSuccess(item);
+            }
+        }
+        else
+        {
+            Debug.Log($"❌ No tienes suficiente dinero. Necesitas: ${item.price}, Tienes: ${PlayerWallet.totalMoney}");
+        }
+    }
+
+    void PurchaseSuccess(ShopItem item)
+    {
+        if (ShopManager.Instance != null)
+        {
+            ShopManager.Instance.PurchaseUpgrade(item.name);
+        }
+
+        Debug.Log($"✅ Comprado: {item.name}. Nuevo saldo: ${PlayerWallet.totalMoney}");
+
+        // Actualizar el texto del dinero inmediatamente
+        UpdateMoneyText();
+
+        // Recargar la UI para mostrar los cambios
+        RefreshUI();
     }
 
     void BuyBrotherPCItem(ShopItem item)
     {
-        if (playerMoney >= item.price)
-        {
-            playerMoney -= item.price;
-            UpdateMoneyText();
-
-            if (!purchasedBrotherItems.Contains(item.name))
-            {
-                purchasedBrotherItems.Add(item.name);
-            }
-
-            CreateComputerUI();
-            computerCanvas.SetActive(true);
-            ShowBrotherPCPanel();
-            UpdateNavButtons(false);
-        }
+        Debug.Log("🔒 Las mejoras del PC del hermano estarán disponibles próximamente");
     }
 
     void UpdateMoneyText()
     {
         if (moneyText != null)
-            moneyText.text = $"💰 Saldo: ${playerMoney}";
+        {
+            // ACTUALIZAR DIRECTAMENTE CON LA VARIABLE ESTÁTICA
+            moneyText.text = $"💰 Saldo: ${PlayerWallet.totalMoney:F2}";
+        }
+    }
+
+    // Método para recargar la UI sin recrear completamente
+    void RefreshUI()
+    {
+        if (shopPanel != null && shopPanel.transform.parent != null)
+        {
+            // Destruir el panel actual
+            Destroy(shopPanel);
+
+            // Volver a crear el panel con los datos actualizados
+            Transform parent = shopPanel.transform.parent;
+            CreateShopPanel(parent);
+
+            // Mostrar el panel correcto según la navegación actual
+            if (isShopActive)
+            {
+                ShowShopPanel();
+                UpdateNavButtons(true);
+            }
+            else
+            {
+                ShowBrotherPCPanel();
+                UpdateNavButtons(false);
+            }
+        }
     }
 
     void StartComputer()
     {
         isUsingComputer = true;
-
         originalCameraPosition = mainCamera.transform.position;
         originalCameraRotation = mainCamera.transform.rotation;
 
@@ -581,14 +558,17 @@ public class ComputerMonitor : MonoBehaviour
         mainCamera.transform.LookAt(transform.position);
 
         computerCanvas.SetActive(true);
-
         Cursor.visible = true;
         Cursor.lockState = CursorLockMode.None;
 
+        // Actualizar el dinero al abrir
         UpdateMoneyText();
 
-        if (mainCharacterScript != null)
-            mainCharacterScript.enabled = false;
+        if (playerController != null)
+        {
+            playerController.SetControl(false);
+            playerController.SetCursorVisibility(true);
+        }
     }
 
     void ExitComputer()
@@ -608,8 +588,11 @@ public class ComputerMonitor : MonoBehaviour
         Cursor.visible = false;
         Cursor.lockState = CursorLockMode.Locked;
 
-        if (mainCharacterScript != null)
-            mainCharacterScript.enabled = true;
+        if (playerController != null)
+        {
+            playerController.SetControl(true);
+            playerController.SetCursorVisibility(false);
+        }
     }
 
     void CreateGUIStyle()
@@ -626,6 +609,16 @@ public class ComputerMonitor : MonoBehaviour
         guiStyle.normal.background = backgroundTex;
     }
 
+    void FindPlayer()
+    {
+        GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
+        if (playerObj != null)
+        {
+            player = playerObj.transform;
+            playerController = player.GetComponent<FirstPersonController>();
+        }
+    }
+
     void SetupCollider()
     {
         Collider existing = GetComponent<Collider>();
@@ -638,16 +631,6 @@ public class ComputerMonitor : MonoBehaviour
         col.isTrigger = true;
         col.size = new Vector3(3f, 2f, 3f);
         col.center = new Vector3(0f, 1f, 0f);
-    }
-
-    void FindPlayer()
-    {
-        GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
-        if (playerObj != null)
-        {
-            player = playerObj.transform;
-            mainCharacterScript = player.GetComponent<MainCharacterScript>();
-        }
     }
 
     void OnTriggerEnter(Collider other)

@@ -25,7 +25,6 @@ public class UIManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            Debug.Log("🟢 UIManager inicializado (solo pausa)");
 
             CreateEventSystem();
             CreatePauseMenu();
@@ -41,14 +40,12 @@ public class UIManager : MonoBehaviour
 
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        Debug.Log($"📁 Escena cargada: {scene.name}");
 
-        // Siempre empezar en estado Playing al cargar una escena de juego
         if (scene.name == "SampleScene" || scene.name == "room")
         {
             CurrentState = GameState.Playing;
             HideAllMenus();
-            Time.timeScale = 1f; // Asegurar que el tiempo corra
+            Time.timeScale = 1f;
         }
     }
 
@@ -71,20 +68,15 @@ public class UIManager : MonoBehaviour
 
     void CreatePauseMenu()
     {
-        Debug.Log("📋 Creando menú de pausa...");
 
-        // Canvas del menú de pausa con HIGH sort order
-        pauseMenuCanvas = CreateCanvas("PauseMenuCanvas", 999); // Número alto para que esté encima de todo
+        pauseMenuCanvas = CreateCanvas("PauseMenuCanvas", 999);
         pauseMenuCanvas.SetActive(false);
 
-        // Fondo semitransparente
         CreateFullScreenImage(pauseMenuCanvas, new Color(0f, 0f, 0f, 0.8f));
 
-        // Título de pausa
         CreateSimpleText(pauseMenuCanvas, "JUEGO EN PAUSA", 56,
                         new Vector2(0.5f, 0.7f), new Vector2(600, 80), Color.white);
 
-        // Botón CONTINUAR
         CreateSimpleButton(pauseMenuCanvas, "CONTINUAR", 42,
                           new Vector2(0.5f, 0.5f), new Vector2(400, 80),
                           () => {
@@ -100,7 +92,6 @@ public class UIManager : MonoBehaviour
                               QuitToMainMenu();
                           });
 
-        Debug.Log("✅ Menú de pausa creado");
     }
 
     GameObject CreateCanvas(string name, int sortOrder)
@@ -211,27 +202,19 @@ public class UIManager : MonoBehaviour
             pauseMenuCanvas.SetActive(true);
             Canvas.ForceUpdateCanvases();
 
-            // PAUSAR TODO EL JUEGO
             Time.timeScale = 0f;
-
-            // MOSTRAR Y DESBLOQUEAR EL CURSOR
             Cursor.visible = true;
             Cursor.lockState = CursorLockMode.None;
-            Debug.Log("🖱️ Cursor mostrado y desbloqueado para menú de pausa");
-
-            // Desactivar PlayerInput cuando el menú de pausa está activo
             PlayerInput playerInput = FindObjectOfType<PlayerInput>();
             if (playerInput != null)
             {
                 playerInput.enabled = false;
-                Debug.Log("🔴 PlayerInput desactivado para menú de pausa");
             }
         }
     }
 
     public void HideAllMenus()
     {
-        Debug.Log("📱 Ocultando todos los menús");
         if (pauseMenuCanvas != null)
         {
             pauseMenuCanvas.SetActive(false);
@@ -239,25 +222,20 @@ public class UIManager : MonoBehaviour
             // REANUDAR EL JUEGO
             Time.timeScale = 1f;
 
-            // OCULTAR Y BLOQUEAR EL CURSOR (solo si estamos en modo juego)
             if (CurrentState == GameState.Playing)
             {
                 Cursor.visible = false;
                 Cursor.lockState = CursorLockMode.Locked;
-                Debug.Log("🖱️ Cursor ocultado y bloqueado para modo juego");
             }
 
-            // Reactivar PlayerInput cuando se cierra el menú
             PlayerInput playerInput = FindObjectOfType<PlayerInput>();
             if (playerInput != null)
             {
                 playerInput.enabled = true;
-                Debug.Log("🟢 PlayerInput reactivado");
             }
         }
     }
 
-    // Métodos de gestión del juego
     public void PauseGame()
     {
         Debug.Log("⏸️ Pausando juego");
@@ -275,8 +253,8 @@ public class UIManager : MonoBehaviour
     public void QuitToMainMenu()
     {
         Debug.Log("🏠 Volviendo al menú principal");
-        CurrentState = GameState.Playing; // Reset state
-        Time.timeScale = 1f; // Asegurar que el tiempo corra
+        CurrentState = GameState.Playing;
+        Time.timeScale = 1f;
         SceneManager.LoadScene("MainMenu");
     }
 
@@ -284,16 +262,13 @@ public class UIManager : MonoBehaviour
     {
         if (Input.GetKeyDown(KeyCode.Escape))
         {
-            Debug.Log($"⎈ ESC presionado - Estado actual: {CurrentState}");
 
             if (CurrentState == GameState.Playing)
             {
-                Debug.Log("⏸️ Cambiando a estado Paused");
                 PauseGame();
             }
             else if (CurrentState == GameState.Paused)
             {
-                Debug.Log("▶️ Cambiando a estado Playing");
                 ResumeGame();
             }
         }

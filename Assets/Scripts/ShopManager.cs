@@ -6,6 +6,7 @@ public class ShopManager : MonoBehaviour
     public static ShopManager Instance { get; private set; }
 
     private HashSet<string> purchasedUpgrades = new HashSet<string>();
+    private const string PURCHASED_UPGRADES_KEY = "PurchasedUpgrades";
 
     void Awake()
     {
@@ -13,7 +14,7 @@ public class ShopManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-
+            LoadPurchasedUpgrades();
         }
         else
         {
@@ -26,7 +27,12 @@ public class ShopManager : MonoBehaviour
         if (!purchasedUpgrades.Contains(upgradeName))
         {
             purchasedUpgrades.Add(upgradeName);
-            Debug.Log($"Mejora comprada: {upgradeName}");
+            SavePurchasedUpgrades();
+            Debug.Log($"✅ Mejora '{upgradeName}' comprada y guardada");
+        }
+        else
+        {
+            Debug.LogWarning($"⚠️ La mejora '{upgradeName}' ya estaba comprada");
         }
     }
 
@@ -40,28 +46,54 @@ public class ShopManager : MonoBehaviour
         return new List<string>(purchasedUpgrades);
     }
 
-    public bool HasCustomerAttitudeUpgrade()
+    private void LoadPurchasedUpgrades()
     {
-        return IsUpgradePurchased("🌟 MEJORAR ACTITUD CLIENTES");
+        string savedUpgrades = PlayerPrefs.GetString(PURCHASED_UPGRADES_KEY, "");
+        if (!string.IsNullOrEmpty(savedUpgrades))
+        {
+            string[] upgrades = savedUpgrades.Split(';');
+            foreach (string upgrade in upgrades)
+            {
+                if (!string.IsNullOrEmpty(upgrade))
+                {
+                    purchasedUpgrades.Add(upgrade);
+                }
+            }
+        }
+        Debug.Log($"📦 Mejoras cargadas: {purchasedUpgrades.Count}");
     }
 
-    public bool HasInventoryExpansion()
+    private void SavePurchasedUpgrades()
     {
-        return IsUpgradePurchased("🔒 EXPANSIÓN DE INVENTARIO");
+        List<string> upgradesList = new List<string>(purchasedUpgrades);
+        string savedUpgrades = string.Join(";", upgradesList.ToArray());
+        PlayerPrefs.SetString(PURCHASED_UPGRADES_KEY, savedUpgrades);
+        PlayerPrefs.Save();
     }
 
-    public bool HasLoyaltySystem()
+    // Método para debug
+    void Update()
     {
-        return IsUpgradePurchased("🔒 SISTEMA DE FIDELIDAD");
+        if (Input.GetKeyDown(KeyCode.P))
+        {
+            Debug.Log("🎯 Mejoras compradas:");
+            foreach (string upgrade in purchasedUpgrades)
+            {
+                Debug.Log($" - {upgrade}");
+            }
+        }
+
+        if (Input.GetKeyDown(KeyCode.O))
+        {
+            ResetPurchases();
+        }
     }
 
-    public bool HasDigitalMarketing()
+    public void ResetPurchases()
     {
-        return IsUpgradePurchased("🔒 MARKETING DIGITAL");
-    }
-
-    public bool HasDeliveryService()
-    {
-        return IsUpgradePurchased("🔒 SERVICIO A DOMICILIO");
+        purchasedUpgrades.Clear();
+        PlayerPrefs.DeleteKey(PURCHASED_UPGRADES_KEY);
+        PlayerPrefs.Save();
+        Debug.Log("🔄 Todas las compras reseteadas");
     }
 }

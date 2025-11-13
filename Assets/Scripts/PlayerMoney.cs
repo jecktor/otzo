@@ -3,50 +3,57 @@ using TMPro;
 
 public class PlayerWallet : MonoBehaviour
 {
-	[Header("Assign the TextMeshPro for displaying money")]
-	public TextMeshProUGUI moneyText;
+    [Header("UI Display")]
+    public TextMeshProUGUI moneyText;
 
-	private float totalMoney = 0f;
+    // VARIABLE ESTÁTICA - Persiste sin necesidad de Singleton complejo
+    public static float totalMoney = 2500f;
 
-	void OnEnable()
-	{
-		CustomerBehavior.OnCustomerReady += OnCustomerReady; // to listen if needed
-		CustomerBehavior.OnCustomerLeft += OnCustomerLeft;
-	}
+    void Start()
+    {
+        // Cargar dinero guardado
+        totalMoney = PlayerPrefs.GetFloat("PlayerMoney", 2500f);
+        UpdateDisplay();
+    }
 
-	void OnDisable()
-	{
-		CustomerBehavior.OnCustomerReady -= OnCustomerReady;
-		CustomerBehavior.OnCustomerLeft -= OnCustomerLeft;
-	}
+    void Update()
+    {
+        // Actualizar UI constantemente
+        if (moneyText != null)
+            moneyText.text = $"${totalMoney:F2}";
+    }
 
-	void Start()
-	{
-		UpdateDisplay();
-	}
+    public void AddMoney(float amount)
+    {
+        totalMoney += amount;
+        SaveMoney();
+    }
 
-	// Optional: could handle these events if we wanted to react differently
-	void OnCustomerReady(float _)
-	{
-		// Optional: maybe highlight UI or pulse color
-	}
+    public bool SpendMoney(float amount)
+    {
+        if (totalMoney >= amount)
+        {
+            totalMoney -= amount;
+            SaveMoney();
+            return true;
+        }
+        return false;
+    }
 
-	void OnCustomerLeft()
-	{
-		// The money increment actually happens in CustomerBehavior,
-		// so we'll handle the event there instead
-	}
+    void SaveMoney()
+    {
+        PlayerPrefs.SetFloat("PlayerMoney", totalMoney);
+        PlayerPrefs.Save();
+    }
 
-	// 👇 Call this from CustomerBehavior when player earns money
-	public void AddMoney(float amount)
-	{
-		totalMoney += amount;
-		UpdateDisplay();
-	}
+    void UpdateDisplay()
+    {
+        if (moneyText != null)
+            moneyText.text = $"${totalMoney:F2}";
+    }
 
-	void UpdateDisplay()
-	{
-		if (moneyText != null)
-			moneyText.text = $"${totalMoney:F2}";
-	}
+    void OnApplicationQuit()
+    {
+        SaveMoney();
+    }
 }

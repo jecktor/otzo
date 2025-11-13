@@ -16,7 +16,11 @@ public class GameManagerPersistent : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            InitializeSystems();
+
+            if (gameClock == null) gameClock = GetComponent<GameClock>();
+            if (sleepSystem == null) sleepSystem = GetComponent<SleepSystem>();
+            if (uiManager == null) uiManager = GetComponent<UIManager>();
+
             SceneManager.sceneLoaded += OnSceneLoaded;
         }
         else
@@ -27,18 +31,10 @@ public class GameManagerPersistent : MonoBehaviour
 
     void InitializeSystems()
     {
-        // Obtener referencias automáticamente
-        gameClock = GetComponent<GameClock>();
-        sleepSystem = GetComponent<SleepSystem>();
-        uiManager = GetComponent<UIManager>();
-
-        Debug.Log("✅ GameManagerPersistent inicializado");
     }
 
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        Debug.Log($"📁 Escena cargada: {scene.name}");
-
         if (scene.name == "MainMenu")
         {
             if (gameClock != null) gameClock.enabled = false;
