@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using System;
+using EasyPeasyFirstPersonController;
 
 public class GameClock : MonoBehaviour
 {
@@ -40,7 +41,6 @@ public class GameClock : MonoBehaviour
     void Start()
     {
         InitializeClock();
-        //EnsureTransitionManagerExists();
         CreateGUIStyles();
     }
 
@@ -59,19 +59,6 @@ public class GameClock : MonoBehaviour
         sleepStyle.fontStyle = FontStyle.Bold;
     }
 
-    /*
-    void EnsureTransitionManagerExists()
-    {
-        DayNightTransitionManager existingManager = FindFirstObjectByType<DayNightTransitionManager>();
-        if (existingManager == null && enableDayNightTransitions)
-        {
-            GameObject managerObj = new GameObject("DayNightTransitionManager");
-            managerObj.AddComponent<DayNightTransitionManager>();
-            Debug.Log("DayNightTransitionManager creado automáticamente");
-        }
-    }
-    */
-
     void InitializeClock()
     {
         currentHour = startHour;
@@ -87,9 +74,6 @@ public class GameClock : MonoBehaviour
     void Update()
     {
         if (!enabled) return;
-
-        //if (DayNightTransitionManager.Instance != null && DayNightTransitionManager.Instance.IsTransitioning)
-        //    return;
 
         float deltaTime = Time.deltaTime;
         gameTime += deltaTime * clockTimeMultiplier;
@@ -136,15 +120,7 @@ public class GameClock : MonoBehaviour
         {
             fivePMTriggered = true;
             OnFivePMReached?.Invoke();
-
-            //if (enableDayNightTransitions && DayNightTransitionManager.Instance != null)
-            //{
-            //    DayNightTransitionManager.Instance.StartDayEndTransition();
-            //}
-            //else
-            //{
             ChangeToNightScene();
-            //}
         }
 
         if (currentHour == 17 && currentMinute == 1 && fivePMTriggered)
@@ -156,8 +132,6 @@ public class GameClock : MonoBehaviour
     void OnGUI()
     {
         if (!enabled) return;
-        //if (DayNightTransitionManager.Instance != null && DayNightTransitionManager.Instance.IsTransitioning)
-        //    return;
 
         string timeString = $"Día {currentDay} - {currentHour:00}:{currentMinute:00}";
         GUI.Label(new Rect(Screen.width - 300, 10, 290, 30), timeString, clockStyle);
@@ -214,6 +188,8 @@ public class GameClock : MonoBehaviour
     {
         if (!enabled) return;
 
+        ReEnablePlayerControl();
+
         string nightScene = "room";
         if (IsSceneInBuildSettings(nightScene))
         {
@@ -231,6 +207,7 @@ public class GameClock : MonoBehaviour
     public void ChangeToDayScene()
     {
         if (!enabled) return;
+        ReEnablePlayerControl();
 
         string dayScene = "SampleScene";
         if (IsSceneInBuildSettings(dayScene))
@@ -239,6 +216,24 @@ public class GameClock : MonoBehaviour
             clockTimeMultiplier = 1f;
             UnityEngine.SceneManagement.SceneManager.LoadScene(dayScene);
             Debug.Log("Cambiando a escena diurna: " + dayScene);
+        }
+    }
+
+    private void ReEnablePlayerControl()
+    {
+        FirstPersonController[] allPlayers = FindObjectsOfType<FirstPersonController>();
+        foreach (FirstPersonController player in allPlayers)
+        {
+            if (player != null)
+            {
+                player.SetControl(true);
+            }
+        }
+
+        ScanMiniGame scanGame = FindObjectOfType<ScanMiniGame>();
+        if (scanGame != null)
+        {
+            scanGame.Stop();
         }
     }
 
@@ -255,14 +250,7 @@ public class GameClock : MonoBehaviour
 
     public void ForceDayEndTransition()
     {
-        //if (enableDayNightTransitions && DayNightTransitionManager.Instance != null)
-        //{
-        //    DayNightTransitionManager.Instance.StartDayEndTransition();
-        //}
-        //else
-        //{
         ChangeToNightScene();
-        //}
     }
 
     public void SetNightSpeed() => clockTimeMultiplier = nightClockSlowdown;
