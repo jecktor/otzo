@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "375151997615",
+    "project_id": "otzo-b10c3",
+    "storage_bucket": "otzo-b10c3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:375151997615:android:67569f1f3d3dfe54bbda5a",
+        "android_client_info": {
+          "package_name": "com.otzo.game"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCrb3jA9npLwluD175X2bi-QHm_smEN8CA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
