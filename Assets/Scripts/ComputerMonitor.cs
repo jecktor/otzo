@@ -95,7 +95,6 @@ public class ComputerMonitor : MonoBehaviour
             ExitComputer();
         }
 
-        // Actualizar dinero en tiempo real mientras se usa la computadora
         if (isUsingComputer && moneyText != null)
         {
             UpdateMoneyText();
@@ -258,8 +257,6 @@ public class ComputerMonitor : MonoBehaviour
         shopPanel.SetActive(true);
     }
 
-    // ELIMINÉ el método IsPreviousUpgradePurchased para evitar que se desbloqueen
-
     void CreateBrotherPCPanel(Transform parent)
     {
         brotherPCPanel = CreatePanel(parent, "BrotherPCPanel",
@@ -297,7 +294,6 @@ public class ComputerMonitor : MonoBehaviour
 
         string descText = item.description;
 
-        // Si está comprada, mostrar texto diferente
         if (isPurchased)
         {
             descText = "✅ Ya comprado - Beneficios activos";
@@ -322,7 +318,6 @@ public class ComputerMonitor : MonoBehaviour
                 new Vector2(0, 0), new Vector2(170, 60), TextAnchor.MiddleCenter, priceColor);
         }
 
-        // Botón - ORDEN CORREGIDO
         if (isPurchased)
         {
             CreateButton(actionContainer.transform, "BuyBtn", "✓ COMPRADO", 26,
@@ -447,14 +442,12 @@ public class ComputerMonitor : MonoBehaviour
 
     void BuyShopItem(ShopItem item)
     {
-        // SOLO permitir comprar si es la primera mejora
         if (item.name != "🌟 Mejorar Actitud Clientes")
         {
             Debug.Log($"🔒 {item.name} está bloqueada permanentemente.");
             return;
         }
 
-        // VERIFICAR PRIMERO si ya está comprado
         if (ShopManager.Instance != null && ShopManager.Instance.IsUpgradePurchased(item.name))
         {
             Debug.Log($"⚠️ {item.name} ya está comprado. No se puede comprar de nuevo.");
@@ -495,7 +488,7 @@ public class ComputerMonitor : MonoBehaviour
             ShopManager.Instance.PurchaseUpgrade(item.name);
         }
 
-        Debug.Log($"✅ Comprado: {item.name}. Nuevo saldo: ${PlayerWallet.totalMoney}");
+        Debug.Log($"✅ Comprado: {item.name. Nuevo saldo: ${PlayerWallet.totalMoney}");
 
         // Actualizar el texto del dinero inmediatamente
         UpdateMoneyText();

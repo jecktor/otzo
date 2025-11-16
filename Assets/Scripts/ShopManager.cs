@@ -71,7 +71,6 @@ public class ShopManager : MonoBehaviour
         PlayerPrefs.Save();
     }
 
-    // Método para debug
     void Update()
     {
         if (Input.GetKeyDown(KeyCode.P))

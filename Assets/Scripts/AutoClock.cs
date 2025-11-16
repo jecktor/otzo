@@ -1,6 +1,8 @@
-﻿using UnityEngine;
+﻿using EasyPeasyFirstPersonController;
 using System;
-using EasyPeasyFirstPersonController;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 
 public class GameClock : MonoBehaviour
 {
@@ -22,12 +24,10 @@ public class GameClock : MonoBehaviour
     private bool isNightScene = false;
     private int lastCheckedHour = -1;
 
-    // Eventos para comunicación entre sistemas
     public event Action<int, int, int> OnTimeChanged;
     public event Action<int> OnNewDayStarted;
     public event Action OnFivePMReached;
 
-    // Styles para UI
     private GUIStyle clockStyle;
     private GUIStyle sleepStyle;
 
@@ -42,6 +42,24 @@ public class GameClock : MonoBehaviour
     {
         InitializeClock();
         CreateGUIStyles();
+
+        // Suscribirse al evento de carga de escena
+        SceneManager.sceneLoaded += OnSceneLoadedForCleanup;
+    }
+
+    void OnSceneLoadedForCleanup(Scene scene, LoadSceneMode mode)
+    {
+        // Limpiar EventSystems después de que la escena esté completamente cargada
+        StartCoroutine(CleanupAfterSceneLoad());
+    }
+
+    System.Collections.IEnumerator CleanupAfterSceneLoad()
+    {
+        // Esperar unos frames para que todo esté inicializado
+        yield return new WaitForEndOfFrame();
+        yield return new WaitForEndOfFrame();
+
+        CleanupDuplicateEventSystems();
     }
 
     void CreateGUIStyles()
@@ -196,7 +214,6 @@ public class GameClock : MonoBehaviour
             isNightScene = true;
             clockTimeMultiplier = nightClockSlowdown;
             UnityEngine.SceneManagement.SceneManager.LoadScene(nightScene);
-            Debug.Log("Cambiando a escena nocturna: " + nightScene);
         }
         else
         {
@@ -248,6 +265,29 @@ public class GameClock : MonoBehaviour
         return false;
     }
 
+    void CleanupDuplicateEventSystems()
+    {
+        EventSystem[] eventSystems = FindObjectsOfType<EventSystem>();
+
+        if (eventSystems.Length > 1)
+        {
+            Debug.Log($"Encontrados {eventSystems.Length} EventSystems. Limpiando duplicados...");
+
+            // Mantener solo el primer EventSystem, destruir los demás
+            for (int i = 1; i < eventSystems.Length; i++)
+            {
+                Debug.Log($"Destruyendo EventSystem duplicado: {eventSystems[i].gameObject.name}");
+                Destroy(eventSystems[i].gameObject);
+            }
+
+            Debug.Log("Limpieza de EventSystems completada");
+        }
+        else if (eventSystems.Length == 0)
+        {
+            Debug.LogWarning("No se encontró ningún EventSystem en la escena");
+        }
+    }
+
     public void ForceDayEndTransition()
     {
         ChangeToNightScene();
@@ -266,5 +306,6 @@ public class GameClock : MonoBehaviour
         OnTimeChanged = null;
         OnNewDayStarted = null;
         OnFivePMReached = null;
+        SceneManager.sceneLoaded -= OnSceneLoadedForCleanup;
     }
 }

@@ -7,7 +7,7 @@
 
     public partial class FirstPersonController : MonoBehaviour
     {
-	    [Range(0, 100)] public float mouseSensitivity = 50f;
+        [Range(0, 100)] public float mouseSensitivity = 50f;
         [Range(0f, 200f)] private float snappiness = 100f;
         [Range(0f, 20f)] public float walkSpeed = 3f;
         [Range(0f, 30f)] public float sprintSpeed = 5f;
@@ -29,10 +29,10 @@
         public float bobbingAmount = 0.05f;
         private float sprintBobMultiplier = 1.5f;
         private float recoilReturnSpeed = 8f;
-	    public bool canSlide = false;
-	    public bool canJump = false;
+        public bool canSlide = false;
+        public bool canJump = false;
         public bool canSprint = true;
-	    public bool canCrouch = false;
+        public bool canCrouch = false;
         public QueryTriggerInteraction ceilingCheckQueryTriggerInteraction = QueryTriggerInteraction.Ignore;
         public QueryTriggerInteraction groundCheckQueryTriggerInteraction = QueryTriggerInteraction.Ignore;
         public Transform groundCheck;
@@ -70,8 +70,10 @@
         private float currentTiltAngle;
         private float tiltVelocity;
 
-        public float CurrentCameraHeight => isCrouching || isSliding ? crouchCameraHeight : originalCameraParentHeight;
+        // Nuevo flag para controlar el posicionamiento
+        private bool isPositioning = false;
 
+        public float CurrentCameraHeight => isCrouching || isSliding ? crouchCameraHeight : originalCameraParentHeight;
 
         private static FirstPersonController instance;
         private string[] persistentScenes = { "SampleScene", "room" };
@@ -79,10 +81,8 @@
         private Vector3 roomPosition = new Vector3(-2f, 1f, -2f);
         private Vector3 sampleScenePosition = new Vector3(9.7f, 1.3f, -13f);
 
-
         private void Awake()
         {
-
             HandlePersistence();
 
             characterController = GetComponent<CharacterController>();
@@ -105,6 +105,7 @@
             xVelocity = rotX;
             yVelocity = rotY;
         }
+
         private void OnEnable()
         {
             SceneManager.sceneLoaded += OnSceneLoaded;
@@ -166,46 +167,60 @@
 
         private IEnumerator SetPositionInRoomCoroutine()
         {
+            isPositioning = true;
+
             yield return new WaitForEndOfFrame();
 
             if (characterController != null)
             {
                 characterController.enabled = false;
+                transform.position = roomPosition;
+                characterController.enabled = true;
             }
-
-            transform.position = roomPosition;
+            else
+            {
+                transform.position = roomPosition;
+            }
 
             yield return new WaitForEndOfFrame();
 
-            if (characterController != null)
-            {
-                characterController.enabled = true;
-            }
+            isPositioning = false;
+            SetControl(true);
 
+            Debug.Log("✅ Player posicionado en room - Control habilitado");
         }
 
         private IEnumerator SetPositionInSampleSceneCoroutine()
         {
+            isPositioning = true;
+
             yield return new WaitForEndOfFrame();
 
             if (characterController != null)
             {
                 characterController.enabled = false;
+                transform.position = sampleScenePosition;
+                characterController.enabled = true;
             }
-
-            transform.position = sampleScenePosition;
+            else
+            {
+                transform.position = sampleScenePosition;
+            }
 
             yield return new WaitForEndOfFrame();
 
-            if (characterController != null)
-            {
-                characterController.enabled = true;
-            }
+            isPositioning = false;
+            SetControl(true);
 
+            Debug.Log("✅ Player posicionado en SampleScene - Control habilitado");
         }
 
         private void Update()
         {
+            // No procesar input mientras se está posicionando o el controller no está listo
+            if (isPositioning || characterController == null || !characterController.enabled)
+                return;
+
             isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask, groundCheckQueryTriggerInteraction);
             if (isGrounded && moveDirection.y < 0)
             {
@@ -340,6 +355,10 @@
 
         private void HandleMovement()
         {
+            // Verificación adicional de seguridad
+            if (characterController == null || !characterController.enabled || isPositioning)
+                return;
+
             moveInput.x = Input.GetAxis("Horizontal");
             moveInput.y = Input.GetAxis("Vertical");
             isSprinting = canSprint && Input.GetKey(KeyCode.LeftShift) && moveInput.y > 0.1f && isGrounded && !isCrouching && !isSliding;
