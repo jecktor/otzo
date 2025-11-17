@@ -165,12 +165,6 @@ public class SleepSystem : MonoBehaviour
         PlayerPrefs.Save();
     }
 
-    void OnApplicationQuit()
-    {
-        SaveSleep();
-    }
-
-    // Método para resetear sueño (para testing)
     [ContextMenu("Reset Sleep")]
     public void ResetSleep()
     {

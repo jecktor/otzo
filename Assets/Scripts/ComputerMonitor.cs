@@ -644,13 +644,15 @@ public class ComputerMonitor : MonoBehaviour
 
     void OnGUI()
     {
+        if (UIManager.Instance != null && UIManager.Instance.CurrentState == UIManager.GameState.Paused)
+            return;
+
         if (isNearMonitor && !isUsingComputer)
         {
             GUI.Box(new Rect(Screen.width / 2 - 200, 100, 400, 50),
                    "Presiona E para usar el computador", guiStyle);
         }
     }
-
     void OnDestroy()
     {
         if (computerCanvas != null) Destroy(computerCanvas);

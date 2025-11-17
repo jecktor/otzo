@@ -135,6 +135,9 @@ public class BedTriggerSleep : MonoBehaviour
 
     void OnGUI()
     {
+        if (UIManager.Instance != null && UIManager.Instance.CurrentState == UIManager.GameState.Paused)
+            return;
+
         if (isNearBed)
         {
             float boxWidth = 350;
