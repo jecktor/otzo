@@ -488,7 +488,7 @@ public class ComputerMonitor : MonoBehaviour
             ShopManager.Instance.PurchaseUpgrade(item.name);
         }
 
-        Debug.Log($"✅ Comprado: {item.name. Nuevo saldo: ${PlayerWallet.totalMoney}");
+        Debug.Log($"✅ Comprado: {item.name} Nuevo saldo: ${PlayerWallet.totalMoney}");
 
         // Actualizar el texto del dinero inmediatamente
         UpdateMoneyText();

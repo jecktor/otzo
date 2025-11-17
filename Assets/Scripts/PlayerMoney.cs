@@ -53,4 +53,12 @@ public class PlayerWallet : MonoBehaviour
     {
         SaveMoney();
     }
+
+    [ContextMenu("Reset Money")]
+    public void ResetMoney()
+    {
+        totalMoney = 2500f;
+        SaveMoney();
+        UpdateDisplay();
+    }
 }

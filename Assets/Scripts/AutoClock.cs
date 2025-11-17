@@ -6,14 +6,10 @@ using UnityEngine.SceneManagement;
 
 public class GameClock : MonoBehaviour
 {
-    [Header("Configuración Tiempo")]
     public float dayDurationInMinutes = 10f;
     public int startHour = 8;
     public int startDay = 1;
     public float nightClockSlowdown = 0.5f;
-
-    [Header("Transiciones Día/Noche")]
-    public bool enableDayNightTransitions = true;
 
     private float gameTime;
     private int currentHour;
@@ -40,25 +36,23 @@ public class GameClock : MonoBehaviour
 
     void Start()
     {
-        InitializeClock();
-        CreateGUIStyles();
+        currentDay = PlayerPrefs.GetInt("CurrentDay", startDay);
+        gameTime = 0f;
+        CalculateGameTime();
 
-        // Suscribirse al evento de carga de escena
-        SceneManager.sceneLoaded += OnSceneLoadedForCleanup;
+        CreateGUIStyles();
+        SceneManager.sceneLoaded += OnSceneLoaded;
     }
 
-    void OnSceneLoadedForCleanup(Scene scene, LoadSceneMode mode)
+    void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        // Limpiar EventSystems después de que la escena esté completamente cargada
         StartCoroutine(CleanupAfterSceneLoad());
     }
 
     System.Collections.IEnumerator CleanupAfterSceneLoad()
     {
-        // Esperar unos frames para que todo esté inicializado
         yield return new WaitForEndOfFrame();
         yield return new WaitForEndOfFrame();
-
         CleanupDuplicateEventSystems();
     }
 
@@ -100,7 +94,6 @@ public class GameClock : MonoBehaviour
         CheckFor5PM();
         CheckForNewDay();
 
-        // Disparar evento de cambio de tiempo
         OnTimeChanged?.Invoke(currentDay, currentHour, currentMinute);
     }
 
@@ -122,7 +115,6 @@ public class GameClock : MonoBehaviour
         if (currentHour == 0 && lastCheckedHour == 23)
         {
             OnNewDayStarted?.Invoke(currentDay);
-            Debug.Log($"Evento: Comenzó el día {currentDay}");
         }
         lastCheckedHour = currentHour;
     }
@@ -184,7 +176,8 @@ public class GameClock : MonoBehaviour
             ChangeToDayScene();
         }
 
-        Debug.Log($"🛏️ Sueño completado. Ahora es Día {currentDay} - 08:00");
+        PlayerPrefs.SetInt("CurrentDay", currentDay);
+        PlayerPrefs.Save();
     }
 
     public void SetExactTime(int targetHour, int targetMinute)
@@ -215,10 +208,6 @@ public class GameClock : MonoBehaviour
             clockTimeMultiplier = nightClockSlowdown;
             UnityEngine.SceneManagement.SceneManager.LoadScene(nightScene);
         }
-        else
-        {
-            Debug.LogError($"Escena nocturna '{nightScene}' no encontrada en build settings");
-        }
     }
 
     public void ChangeToDayScene()
@@ -232,7 +221,6 @@ public class GameClock : MonoBehaviour
             isNightScene = false;
             clockTimeMultiplier = 1f;
             UnityEngine.SceneManagement.SceneManager.LoadScene(dayScene);
-            Debug.Log("Cambiando a escena diurna: " + dayScene);
         }
     }
 
@@ -271,20 +259,10 @@ public class GameClock : MonoBehaviour
 
         if (eventSystems.Length > 1)
         {
-            Debug.Log($"Encontrados {eventSystems.Length} EventSystems. Limpiando duplicados...");
-
-            // Mantener solo el primer EventSystem, destruir los demás
             for (int i = 1; i < eventSystems.Length; i++)
             {
-                Debug.Log($"Destruyendo EventSystem duplicado: {eventSystems[i].gameObject.name}");
                 Destroy(eventSystems[i].gameObject);
             }
-
-            Debug.Log("Limpieza de EventSystems completada");
-        }
-        else if (eventSystems.Length == 0)
-        {
-            Debug.LogWarning("No se encontró ningún EventSystem en la escena");
         }
     }
 
@@ -296,7 +274,6 @@ public class GameClock : MonoBehaviour
     public void SetNightSpeed() => clockTimeMultiplier = nightClockSlowdown;
     public void SetDaySpeed() => clockTimeMultiplier = 1f;
 
-    // Métodos para que otros sistemas se suscriban a eventos
     public void SubscribeToTimeChanges(Action<int, int, int> callback) => OnTimeChanged += callback;
     public void SubscribeToNewDay(Action<int> callback) => OnNewDayStarted += callback;
     public void SubscribeToFivePM(Action callback) => OnFivePMReached += callback;
@@ -306,6 +283,6 @@ public class GameClock : MonoBehaviour
         OnTimeChanged = null;
         OnNewDayStarted = null;
         OnFivePMReached = null;
-        SceneManager.sceneLoaded -= OnSceneLoadedForCleanup;
+        SceneManager.sceneLoaded -= OnSceneLoaded;
     }
 }

@@ -7,99 +7,86 @@ using System.Collections.Generic;
 
 public class UsernameLogin : MonoBehaviour
 {
-	[Header("UI")]
-	public TMP_InputField usernameInput;
-	public TMP_Text feedbackText;
+    [Header("UI")]
+    public TMP_InputField usernameInput;
+    public TMP_Text feedbackText;
 
-	FirebaseFirestore db;
+    FirebaseFirestore db;
 
-	async void Start()
-	{
-		var dep = await FirebaseApp.CheckAndFixDependenciesAsync();
+    async void Start()
+    {
+        var dep = await FirebaseApp.CheckAndFixDependenciesAsync();
 
-		if (dep != DependencyStatus.Available)
-		{
-			feedbackText.text = "Error inicializando Firebase.";
-			return;
-		}
+        if (dep != DependencyStatus.Available)
+        {
+            feedbackText.text = "Error inicializando Firebase.";
+            return;
+        }
 
-		db = FirebaseFirestore.DefaultInstance;
-	}
+        db = FirebaseFirestore.DefaultInstance;
+    }
 
-	public void OnConfirmUsername()
-	{
-		string username = usernameInput.text.Trim().ToLower();
+    public void OnConfirmUsername()
+    {
+        string username = usernameInput.text.Trim().ToLower();
 
-		if (string.IsNullOrEmpty(username))
-		{
-			feedbackText.text = "Introduce un nombre válido.";
-			return;
-		}
+        if (string.IsNullOrEmpty(username))
+        {
+            feedbackText.text = "Introduce un nombre válido.";
+            return;
+        }
 
-		CheckIfUsernameExists(username);
-	}
+        CheckIfUsernameExists(username);
+    }
 
-	void CheckIfUsernameExists(string username)
-	{
-		DocumentReference doc = db.Collection("players").Document(username);
+    void CheckIfUsernameExists(string username)
+    {
+        DocumentReference doc = db.Collection("players").Document(username);
 
-		doc.GetSnapshotAsync().ContinueWithOnMainThread(task =>
-		{
-			if (task.IsFaulted)
-			{
-				feedbackText.text = "Error conectando con Firestore.";
-				return;
-			}
+        doc.GetSnapshotAsync().ContinueWithOnMainThread(task =>
+        {
+            if (task.IsFaulted)
+            {
+                feedbackText.text = "Error conectando con Firestore.";
+                return;
+            }
 
-			// If user does NOT exist
-			if (!task.Result.Exists)
-			{
-				CreateNewUser(username);
-				return;
-			}
+            if (!task.Result.Exists)
+            {
+                CreateNewUser(username);
+                return;
+            }
 
-			// User exists → load data
-			Dictionary<string, object> data = task.Result.ToDictionary();
+            LoadExistingUser(username);
+        });
+    }
 
-			int score = 0;
-			if (data.ContainsKey("bestScore"))
-			{
-				int.TryParse(data["bestScore"].ToString(), out score);
-			}
+    void CreateNewUser(string username)
+    {
+        GlobalUser.Instance.SetUser(username, 0);
 
-			// Store globally
-			GlobalUser.Instance.SetUser(username, score);
+        if (GameDataManager.Instance != null)
+        {
+            GameDataManager.Instance.CreateDefaultUserData();
+        }
 
-			feedbackText.text = $"Bienvenido de vuelta, {username}!";
+        feedbackText.text = $"¡Usuario creado: {username}!";
 
-			// TODO: Load your main menu or game scene
-		});
-	}
+        // TODO: Load your main menu or game scene
+    }
 
-	void CreateNewUser(string username)
-	{
-		var data = new Dictionary<string, object>
-		{
-			{"username", username},
-			{"bestScore", 0}
-		};
+    void LoadExistingUser(string username)
+    {
+        GlobalUser.Instance.SetUser(username, 0);
 
-		DocumentReference doc = db.Collection("players").Document(username);
+        if (GameDataManager.Instance != null)
+        {
+            GameDataManager.Instance.LoadUserDataFromFirebase();
+        }
 
-		doc.SetAsync(data).ContinueWithOnMainThread(task =>
-		{
-			if (task.IsFaulted)
-			{
-				feedbackText.text = "Error creando usuario.";
-				return;
-			}
+        feedbackText.text = $"Bienvenido de vuelta, {username}!";
 
-			// Store globally
-			GlobalUser.Instance.SetUser(username, 0);
+        // TODO: Load your main menu or game scene
 
-			feedbackText.text = $"¡Usuario creado: {username}!";
-
-			// TODO: Load your main menu or game scene
-		});
-	}
+    }
 }

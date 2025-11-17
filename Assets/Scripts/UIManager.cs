@@ -219,7 +219,6 @@ public class UIManager : MonoBehaviour
         {
             pauseMenuCanvas.SetActive(false);
 
-            // REANUDAR EL JUEGO
             Time.timeScale = 1f;
 
             if (CurrentState == GameState.Playing)

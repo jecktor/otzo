@@ -20,7 +20,7 @@ public class SleepSystem : MonoBehaviour
 
     void Start()
     {
-        currentSleepQuality = maxSleepQuality;
+        currentSleepQuality = PlayerPrefs.GetFloat("SleepQuality", maxSleepQuality);
         lastFatigueUpdateTime = Time.time;
         CreateGUIStyle();
 
@@ -32,6 +32,7 @@ public class SleepSystem : MonoBehaviour
         {
             gameClock = FindFirstObjectByType<GameClock>();
         }
+
     }
 
     void CreateGUIStyle()
@@ -46,9 +47,6 @@ public class SleepSystem : MonoBehaviour
     void Update()
     {
         if (!enabled) return;
-
-        if (DayNightTransitionManager.Instance != null && DayNightTransitionManager.Instance.IsTransitioning)
-            return;
 
         UpdateFatigue();
     }
@@ -70,6 +68,11 @@ public class SleepSystem : MonoBehaviour
             float fatigueThisSecond = fatigueRate * timeSinceLastUpdate;
             currentSleepQuality = Mathf.Clamp(currentSleepQuality - fatigueThisSecond, 0f, maxSleepQuality);
             lastFatigueUpdateTime = currentTime;
+
+            if (Mathf.FloorToInt(currentTime) % 10 == 0)
+            {
+                SaveSleep();
+            }
         }
     }
 
@@ -90,8 +93,6 @@ public class SleepSystem : MonoBehaviour
     void OnGUI()
     {
         if (!enabled) return;
-        if (DayNightTransitionManager.Instance != null && DayNightTransitionManager.Instance.IsTransitioning)
-            return;
 
         string sleepString = $"Sueño: {currentSleepQuality:F1}%";
 
@@ -120,6 +121,8 @@ public class SleepSystem : MonoBehaviour
         {
             currentSleepQuality = CalculateSleepQuality(22);
         }
+
+        SaveSleep();
     }
 
     public float CalculateSleepQuality(int hourSlept)
@@ -143,6 +146,7 @@ public class SleepSystem : MonoBehaviour
     public void ModifySleepQuality(float amount)
     {
         currentSleepQuality = Mathf.Clamp(currentSleepQuality + amount, 0f, maxSleepQuality);
+        SaveSleep();
     }
 
     public string GetFatigueStatus()
@@ -153,5 +157,25 @@ public class SleepSystem : MonoBehaviour
         if (percent >= 0.4f) return "Cansado";
         if (percent >= 0.2f) return "Fatigado";
         return "Agotado";
+    }
+
+    void SaveSleep()
+    {
+        PlayerPrefs.SetFloat("SleepQuality", currentSleepQuality);
+        PlayerPrefs.Save();
+    }
+
+    void OnApplicationQuit()
+    {
+        SaveSleep();
+    }
+
+    // Método para resetear sueño (para testing)
+    [ContextMenu("Reset Sleep")]
+    public void ResetSleep()
+    {
+        currentSleepQuality = maxSleepQuality;
+        SaveSleep();
+        Debug.Log("😴 Sueño reseteado al 100%");
     }
 }

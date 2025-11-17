@@ -1,8 +1,8 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class BedTriggerSleep : MonoBehaviour
 {
-    [Header("Configuraci�n Cama")]
+    [Header("Configuración Cama")]
     public KeyCode interactionKey = KeyCode.E;
     public float interactionRange = 2f;
 
@@ -20,6 +20,18 @@ public class BedTriggerSleep : MonoBehaviour
         CreateGUIStyle();
 
         TryInitializeSystems();
+
+        EnsureGameDataManagerExists();
+    }
+
+    void EnsureGameDataManagerExists()
+    {
+        if (GameDataManager.Instance == null)
+        {
+            GameObject gameDataManagerObj = new GameObject("GameDataManager");
+            gameDataManagerObj.AddComponent<GameDataManager>();
+            Debug.Log("📊 GameDataManager creado automáticamente");
+        }
     }
 
     void Update()
@@ -66,23 +78,45 @@ public class BedTriggerSleep : MonoBehaviour
             TryInitializeSystems();
             if (!systemsInitialized)
             {
+                Debug.LogError("❌ No se pudieron inicializar los sistemas para dormir");
                 return;
             }
         }
 
         if (gameClock != null && sleepSystem != null)
         {
+            // Ejecutar el sueño y avance de tiempo
             sleepSystem.Sleep();
-
-            //if (DayNightTransitionManager.Instance != null)
-            //{
-            //    DayNightTransitionManager.Instance.StartSleepTransition();
-            //}
-            //else
-            //{
             gameClock.SleepAndAdvanceTime();
-            //}
+
+            if (GameDataManager.Instance != null)
+            {
+                GameDataManager.Instance.SaveGameData();
+            }
+            else
+            {
+                SaveAllGameDataFallback();
+            }
         }
+    }
+
+    void SaveAllGameDataFallback()
+    {
+        PlayerPrefs.SetFloat("PlayerMoney", PlayerWallet.totalMoney);
+
+        if (sleepSystem != null)
+        {
+            PlayerPrefs.SetFloat("SleepQuality", sleepSystem.CurrentSleepQuality);
+        }
+
+        // Guardar día
+        if (gameClock != null)
+        {
+            PlayerPrefs.SetInt("CurrentDay", gameClock.CurrentDay);
+        }
+
+        PlayerPrefs.Save();
+        Debug.Log("💾 Datos guardados (fallback): Dinero, Sueño, Día");
     }
 
     void CreateGUIStyle()
@@ -109,10 +143,6 @@ public class BedTriggerSleep : MonoBehaviour
             float y = 100;
 
             GUI.Box(new Rect(x, y, boxWidth, boxHeight), "Presiona la letra E para dormir", guiStyle);
-
-            if (sleepSystem != null)
-            {
-            }
         }
     }
 
