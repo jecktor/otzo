@@ -546,10 +546,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   dayDurationInMinutes: 10
-  startHour: 16
+  startHour: 8
   startDay: 1
   nightClockSlowdown: 0.5
-  enableDayNightTransitions: 1
 --- !u!4 &136364092
 Transform:
   m_ObjectHideFlags: 0
@@ -3770,7 +3769,6 @@ MonoBehaviour:
   startHour: 16
   startDay: 1
   nightClockSlowdown: 0.5
-  enableDayNightTransitions: 1
 --- !u!4 &1067332102
 Transform:
   m_ObjectHideFlags: 0
