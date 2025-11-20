@@ -32,6 +32,7 @@ public class ComputerMonitor : MonoBehaviour
     private GameObject computerCanvas;
     private GameObject shopPanel;
     private GameObject brotherPCPanel;
+    private GameObject emailPanel;
     private Text moneyText;
 
     private List<ShopItem> shopItems = new List<ShopItem>();
@@ -39,7 +40,10 @@ public class ComputerMonitor : MonoBehaviour
 
     private GameObject tiendaBtn;
     private GameObject pcBtn;
+    private GameObject emailBtn;
     private bool isShopActive = true;
+    private bool isEmailActive = false;
+    private bool isBrotherPCActive = false;
 
     public bool IsUsingComputer => isUsingComputer;
 
@@ -51,8 +55,10 @@ public class ComputerMonitor : MonoBehaviour
         CreateGUIStyle();
         InitializeShopData();
         EnsureShopManagerExists();
+        EnsureEmailManagerExists();
 
         Debug.Log($"💰 Dinero inicial en ComputerMonitor: ${PlayerWallet.totalMoney}");
+        Debug.Log($"📧 Estado correo: {(EmailManager.Instance.HasReadFirstDayEmail ? "LEÍDO" : "NO LEÍDO")}");
     }
 
     void EnsureShopManagerExists()
@@ -64,8 +70,20 @@ public class ComputerMonitor : MonoBehaviour
         }
     }
 
+    void EnsureEmailManagerExists()
+    {
+        if (EmailManager.Instance == null)
+        {
+            GameObject emailManagerObj = new GameObject("EmailManager");
+            emailManagerObj.AddComponent<EmailManager>();
+        }
+    }
+
     void Update()
     {
+        if (UIManager.Instance != null && UIManager.Instance.CurrentState == UIManager.GameState.Paused)
+            return;
+
         if (player == null)
         {
             FindPlayer();
@@ -104,13 +122,18 @@ public class ComputerMonitor : MonoBehaviour
         {
             if (Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1))
             {
-                ShowShopPanel();
-                UpdateNavButtons(true);
+                ShowEmailPanel();
+                UpdateNavButtons(false, false, true);
             }
             else if (Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2))
             {
+                ShowShopPanel();
+                UpdateNavButtons(true, false, false);
+            }
+            else if (Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3))
+            {
                 ShowBrotherPCPanel();
-                UpdateNavButtons(false);
+                UpdateNavButtons(false, true, false);
             }
         }
     }
@@ -167,10 +190,9 @@ public class ComputerMonitor : MonoBehaviour
         headerRT.anchoredPosition = new Vector2(0, -60);
         headerRT.sizeDelta = new Vector2(0, 120);
 
-        CreateText(headerPanel.transform, "AppTitle", "🛍️ MEJORAS TIENDA", 42,
+        CreateText(headerPanel.transform, "AppTitle", "💻 COMPUTADOR PERSONAL", 42,
             new Vector2(-700, 0), new Vector2(500, 50), TextAnchor.MiddleLeft, Color.white);
 
-        // USANDO LA VARIABLE ESTÁTICA DIRECTAMENTE
         moneyText = CreateText(headerPanel.transform, "MoneyText", $"💰 Saldo: ${PlayerWallet.totalMoney:F2}", 32,
             new Vector2(500, 0), new Vector2(400, 50), TextAnchor.MiddleRight, Color.white).GetComponent<Text>();
 
@@ -179,18 +201,24 @@ public class ComputerMonitor : MonoBehaviour
             new Color(0.8f, 0.2f, 0.2f, 1f), Color.white);
 
         GameObject navPanel = CreatePanel(mainContainer.transform, "Navigation",
-            new Vector2(0, 300), new Vector2(700, 60), new Color(0, 0, 0, 0));
+            new Vector2(0, 300), new Vector2(900, 60), new Color(0, 0, 0, 0));
 
-        tiendaBtn = CreateNavButton(navPanel.transform, "TiendaBtn", "🏪 MEJORAS TIENDA", 26,
-            new Vector2(-150, 0), new Vector2(280, 50), () => {
-                ShowShopPanel();
-                UpdateNavButtons(true);
+        emailBtn = CreateNavButton(navPanel.transform, "EmailBtn", "📧 CORREO (1)", 26,
+            new Vector2(-300, 0), new Vector2(250, 50), () => {
+                ShowEmailPanel();
+                UpdateNavButtons(false, false, true);
             }, true);
 
-        pcBtn = CreateNavButton(navPanel.transform, "PcBtn", "💻 PC HERMANO", 26,
-            new Vector2(150, 0), new Vector2(220, 50), () => {
+        tiendaBtn = CreateNavButton(navPanel.transform, "TiendaBtn", "🏪 MEJORAS TIENDA (2)", 26,
+            new Vector2(0, 0), new Vector2(300, 50), () => {
+                ShowShopPanel();
+                UpdateNavButtons(true, false, false);
+            }, false);
+
+        pcBtn = CreateNavButton(navPanel.transform, "PcBtn", "💻 PC HERMANO (3)", 26,
+            new Vector2(300, 0), new Vector2(250, 50), () => {
                 ShowBrotherPCPanel();
-                UpdateNavButtons(false);
+                UpdateNavButtons(false, true, false);
             }, false);
 
         CreatePanel(mainContainer.transform, "Divider",
@@ -199,38 +227,129 @@ public class ComputerMonitor : MonoBehaviour
         GameObject contentContainer = CreatePanel(mainContainer.transform, "ContentContainer",
             new Vector2(0, -50), new Vector2(1800, 700), new Color(0, 0, 0, 0));
 
+        CreateEmailPanel(contentContainer.transform);
         CreateShopPanel(contentContainer.transform);
         CreateBrotherPCPanel(contentContainer.transform);
 
-        ShowShopPanel();
-        UpdateNavButtons(true);
+        if (!EmailManager.Instance.HasReadFirstDayEmail)
+        {
+            ShowEmailPanel();
+            UpdateNavButtons(false, false, true);
+        }
+        else
+        {
+            ShowShopPanel();
+            UpdateNavButtons(true, false, false);
+        }
     }
 
-    void UpdateNavButtons(bool shopActive)
+    void UpdateNavButtons(bool shopActive, bool brotherPCActive, bool emailActive)
     {
         isShopActive = shopActive;
+        isBrotherPCActive = brotherPCActive;
+        isEmailActive = emailActive;
 
-        if (tiendaBtn != null && pcBtn != null)
+        if (tiendaBtn != null && pcBtn != null && emailBtn != null)
         {
             Image tiendaImg = tiendaBtn.GetComponent<Image>();
             Image pcImg = pcBtn.GetComponent<Image>();
+            Image emailImg = emailBtn.GetComponent<Image>();
 
             Text tiendaText = tiendaBtn.GetComponentInChildren<Text>();
             Text pcText = pcBtn.GetComponentInChildren<Text>();
+            Text emailText = emailBtn.GetComponentInChildren<Text>();
 
+            // Reset all to inactive
+            tiendaImg.color = new Color(0.8f, 0.8f, 0.8f, 1f);
+            tiendaText.color = textGray;
+            pcImg.color = new Color(0.8f, 0.8f, 0.8f, 1f);
+            pcText.color = textGray;
+            emailImg.color = new Color(0.8f, 0.8f, 0.8f, 1f);
+            emailText.color = textGray;
+
+            // Set active one
             if (shopActive)
             {
                 tiendaImg.color = primaryColor;
                 tiendaText.color = Color.white;
-                pcImg.color = new Color(0.8f, 0.8f, 0.8f, 1f);
-                pcText.color = textGray;
             }
-            else
+            else if (brotherPCActive)
             {
-                tiendaImg.color = new Color(0.8f, 0.8f, 0.8f, 1f);
-                tiendaText.color = textGray;
                 pcImg.color = primaryColor;
                 pcText.color = Color.white;
+            }
+            else if (emailActive)
+            {
+                emailImg.color = primaryColor;
+                emailText.color = Color.white;
+            }
+        }
+    }
+
+    void CreateEmailPanel(Transform parent)
+    {
+        emailPanel = CreatePanel(parent, "EmailPanel",
+            new Vector2(0, 0), new Vector2(1800, 700), new Color(0, 0, 0, 0));
+        
+        CreateText(emailPanel.transform, "SectionTitle", "📧 BANDEJA DE ENTRADA", 34,
+            new Vector2(0, 200), new Vector2(900, 50), TextAnchor.MiddleCenter, textDark); // Cambiado de 280 a 200
+
+        GameObject emailCard = CreatePanel(emailPanel.transform, "EmailCard",
+            new Vector2(0, -80), new Vector2(1500, 450), cardColor); // Cambiado de 30 a -80
+
+        CreateText(emailCard.transform, "EmailSubject", "🎉 ¡Buena Suerte en tu Primer Día!", 32,
+            new Vector2(0, 180), new Vector2(1400, 50), TextAnchor.MiddleLeft, primaryColor);
+
+        CreateText(emailCard.transform, "EmailFrom", "De: Mamá <mama@familia.com>", 20,
+            new Vector2(0, 140), new Vector2(1400, 30), TextAnchor.MiddleLeft, textGray);
+
+        CreateText(emailCard.transform, "EmailDate", "Fecha: Hoy 08:00 AM", 20,
+            new Vector2(0, 100), new Vector2(1400, 25), TextAnchor.MiddleLeft, textGray);
+
+        CreatePanel(emailCard.transform, "EmailDivider",
+            new Vector2(0, 50), new Vector2(1400, 2), new Color(0.9f, 0.9f, 0.9f, 1f));
+
+        string emailBody = "¡Mucha suerte con tu nueva tienda, hijo! ✨\n\n" +
+                          "Sé que será un gran éxito. Has trabajado muy duro para esto.\n\n" +
+                          "Confío plenamente en ti. Tu dedicación y pasión harán brillar este negocio.\n\n" +
+                          "¡Estoy muy orgullosa!\n\n" +
+                          "Con amor,\n" +
+                          "Mamá 💕";
+
+        // Texto del cuerpo - ajustado
+        CreateText(emailCard.transform, "EmailBody", emailBody, 22,
+            new Vector2(0, -40), new Vector2(1400, 250), TextAnchor.UpperLeft, textDark); // Altura reducida de 350 a 250
+
+        if (!EmailManager.Instance.HasReadFirstDayEmail)
+        {
+            CreateButton(emailCard.transform, "MarkReadBtn", "✅ MARCAR COMO LEÍDO", 28,
+                new Vector2(0, -180), new Vector2(300, 60), () => { // Cambiado de -200 a -180
+                    EmailManager.Instance.MarkEmailAsRead();
+                    RefreshEmailPanel();
+                    Debug.Log("📧 Correo marcado como leído. Ahora puedes dormir.");
+                },
+                successColor, Color.white);
+        }
+        else
+        {
+            CreateText(emailCard.transform, "EmailReadStatus", "✅ Correo leído", 24,
+                new Vector2(0, -180), new Vector2(1400, 40), TextAnchor.MiddleCenter, successColor); // Cambiado de -200 a -180
+        }
+
+        emailPanel.SetActive(false);
+    }
+    void RefreshEmailPanel()
+    {
+        if (emailPanel != null && emailPanel.transform.parent != null)
+        {
+            Destroy(emailPanel);
+            Transform parent = emailPanel.transform.parent;
+            CreateEmailPanel(parent);
+
+            if (isEmailActive)
+            {
+                ShowEmailPanel();
+                UpdateNavButtons(false, false, true);
             }
         }
     }
@@ -249,12 +368,11 @@ public class ComputerMonitor : MonoBehaviour
         for (int i = 0; i < shopItems.Count; i++)
         {
             bool isPurchased = ShopManager.Instance != null && ShopManager.Instance.IsUpgradePurchased(shopItems[i].name);
-            // SOLO la primera mejora está disponible, las demás SIEMPRE bloqueadas
             bool isAvailable = i == 0;
             CreateProductCard(shopPanel.transform, shopItems[i], startY - (i * spacing), isAvailable, isPurchased, false);
         }
 
-        shopPanel.SetActive(true);
+        shopPanel.SetActive(false);
     }
 
     void CreateBrotherPCPanel(Transform parent)
@@ -274,7 +392,7 @@ public class ComputerMonitor : MonoBehaviour
         for (int i = 0; i < brotherPCItems.Count; i++)
         {
             bool isPurchased = false;
-            bool isAvailable = false; // Todas las mejoras de PC están bloqueadas
+            bool isAvailable = false;
             CreateProductCard(brotherPCPanel.transform, brotherPCItems[i], startY - (i * spacing), isAvailable, isPurchased, true);
         }
 
@@ -428,14 +546,23 @@ public class ComputerMonitor : MonoBehaviour
         return textObj;
     }
 
+    void ShowEmailPanel()
+    {
+        if (emailPanel != null) emailPanel.SetActive(true);
+        if (shopPanel != null) shopPanel.SetActive(false);
+        if (brotherPCPanel != null) brotherPCPanel.SetActive(false);
+    }
+
     void ShowShopPanel()
     {
+        if (emailPanel != null) emailPanel.SetActive(false);
         if (shopPanel != null) shopPanel.SetActive(true);
         if (brotherPCPanel != null) brotherPCPanel.SetActive(false);
     }
 
     void ShowBrotherPCPanel()
     {
+        if (emailPanel != null) emailPanel.SetActive(false);
         if (shopPanel != null) shopPanel.SetActive(false);
         if (brotherPCPanel != null) brotherPCPanel.SetActive(true);
     }
@@ -454,10 +581,8 @@ public class ComputerMonitor : MonoBehaviour
             return;
         }
 
-        // VERIFICAR si tiene suficiente dinero
         if (PlayerWallet.totalMoney >= item.price)
         {
-            // Buscar el PlayerWallet para usar su método SpendMoney
             PlayerWallet wallet = FindObjectOfType<PlayerWallet>();
             if (wallet != null)
             {
@@ -468,7 +593,6 @@ public class ComputerMonitor : MonoBehaviour
             }
             else
             {
-                // Fallback: restar directamente si no encuentra el Wallet
                 PlayerWallet.totalMoney -= item.price;
                 PlayerPrefs.SetFloat("PlayerMoney", PlayerWallet.totalMoney);
                 PlayerPrefs.Save();
@@ -489,11 +613,7 @@ public class ComputerMonitor : MonoBehaviour
         }
 
         Debug.Log($"✅ Comprado: {item.name} Nuevo saldo: ${PlayerWallet.totalMoney}");
-
-        // Actualizar el texto del dinero inmediatamente
         UpdateMoneyText();
-
-        // Recargar la UI para mostrar los cambios
         RefreshUI();
     }
 
@@ -506,33 +626,32 @@ public class ComputerMonitor : MonoBehaviour
     {
         if (moneyText != null)
         {
-            // ACTUALIZAR DIRECTAMENTE CON LA VARIABLE ESTÁTICA
             moneyText.text = $"💰 Saldo: ${PlayerWallet.totalMoney:F2}";
         }
     }
 
-    // Método para recargar la UI sin recrear completamente
     void RefreshUI()
     {
         if (shopPanel != null && shopPanel.transform.parent != null)
         {
-            // Destruir el panel actual
             Destroy(shopPanel);
-
-            // Volver a crear el panel con los datos actualizados
             Transform parent = shopPanel.transform.parent;
             CreateShopPanel(parent);
 
-            // Mostrar el panel correcto según la navegación actual
             if (isShopActive)
             {
                 ShowShopPanel();
-                UpdateNavButtons(true);
+                UpdateNavButtons(true, false, false);
             }
-            else
+            else if (isBrotherPCActive)
             {
                 ShowBrotherPCPanel();
-                UpdateNavButtons(false);
+                UpdateNavButtons(false, true, false);
+            }
+            else if (isEmailActive)
+            {
+                ShowEmailPanel();
+                UpdateNavButtons(false, false, true);
             }
         }
     }
@@ -554,7 +673,6 @@ public class ComputerMonitor : MonoBehaviour
         Cursor.visible = true;
         Cursor.lockState = CursorLockMode.None;
 
-        // Actualizar el dinero al abrir
         UpdateMoneyText();
 
         if (playerController != null)
@@ -649,17 +767,17 @@ public class ComputerMonitor : MonoBehaviour
 
         if (isNearMonitor && !isUsingComputer)
         {
-            GUI.Box(new Rect(Screen.width / 2 - 200, 100, 400, 50),
-                   "Presiona E para usar el computador", guiStyle);
+            string message = "Presiona E para usar el computador";
+            GUI.Box(new Rect(Screen.width / 2 - 200, 100, 400, 50), message, guiStyle);
         }
     }
+
     void OnDestroy()
     {
         if (computerCanvas != null) Destroy(computerCanvas);
         if (backgroundTex != null) Destroy(backgroundTex);
     }
 }
-
 [System.Serializable]
 public class ShopItem
 {

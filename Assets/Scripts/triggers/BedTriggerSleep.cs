@@ -20,8 +20,8 @@ public class BedTriggerSleep : MonoBehaviour
         CreateGUIStyle();
 
         TryInitializeSystems();
-
         EnsureGameDataManagerExists();
+        EnsureEmailManagerExists();
     }
 
     void EnsureGameDataManagerExists()
@@ -34,8 +34,20 @@ public class BedTriggerSleep : MonoBehaviour
         }
     }
 
+    void EnsureEmailManagerExists()
+    {
+        if (EmailManager.Instance == null)
+        {
+            GameObject emailManagerObj = new GameObject("EmailManager");
+            emailManagerObj.AddComponent<EmailManager>();
+        }
+    }
+
     void Update()
     {
+        if (UIManager.Instance != null && UIManager.Instance.CurrentState == UIManager.GameState.Paused)
+            return;
+
         if (player == null) return;
 
         if (!systemsInitialized)
@@ -73,6 +85,12 @@ public class BedTriggerSleep : MonoBehaviour
 
     void SleepInBed()
     {
+        if (!EmailManager.Instance.HasReadFirstDayEmail)
+        {
+            Debug.Log("❌ No puedes dormir aún. Revisa tu correo primero en la computadora.");
+            return;
+        }
+
         if (!systemsInitialized)
         {
             TryInitializeSystems();
@@ -85,7 +103,6 @@ public class BedTriggerSleep : MonoBehaviour
 
         if (gameClock != null && sleepSystem != null)
         {
-            // Ejecutar el sueño y avance de tiempo
             sleepSystem.Sleep();
             gameClock.SleepAndAdvanceTime();
 
@@ -109,7 +126,6 @@ public class BedTriggerSleep : MonoBehaviour
             PlayerPrefs.SetFloat("SleepQuality", sleepSystem.CurrentSleepQuality);
         }
 
-        // Guardar día
         if (gameClock != null)
         {
             PlayerPrefs.SetInt("CurrentDay", gameClock.CurrentDay);
@@ -145,7 +161,11 @@ public class BedTriggerSleep : MonoBehaviour
             float x = (Screen.width - boxWidth) / 2;
             float y = 100;
 
-            GUI.Box(new Rect(x, y, boxWidth, boxHeight), "Presiona la letra E para dormir", guiStyle);
+            string message = EmailManager.Instance.HasReadFirstDayEmail ?
+                "Presiona la letra E para dormir" :
+                "Revisa tu correo en la computadora";
+
+            GUI.Box(new Rect(x, y, boxWidth, boxHeight), message, guiStyle);
         }
     }
 
