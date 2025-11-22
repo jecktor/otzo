@@ -18,6 +18,7 @@ public class UIManager : MonoBehaviour
 
     private GameObject pauseMenuCanvas;
     private GameObject eventSystem;
+    private string[] allowedScenes = { "SampleScene", "room" };
 
     void Awake()
     {
@@ -40,13 +41,28 @@ public class UIManager : MonoBehaviour
 
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-
-        if (scene.name == "SampleScene" || scene.name == "room")
+        // Solo resetear el estado si es una escena permitida
+        if (IsSceneAllowed(scene.name))
         {
             CurrentState = GameState.Playing;
             HideAllMenus();
             Time.timeScale = 1f;
         }
+        else
+        {
+            // Si no es una escena permitida, ocultar el menú de pausa
+            HideAllMenus();
+        }
+    }
+
+    bool IsSceneAllowed(string sceneName)
+    {
+        foreach (string allowedScene in allowedScenes)
+        {
+            if (sceneName == allowedScene)
+                return true;
+        }
+        return false;
     }
 
     void CreateEventSystem()
@@ -68,7 +84,6 @@ public class UIManager : MonoBehaviour
 
     void CreatePauseMenu()
     {
-
         pauseMenuCanvas = CreateCanvas("PauseMenuCanvas", 999);
         pauseMenuCanvas.SetActive(false);
 
@@ -91,7 +106,6 @@ public class UIManager : MonoBehaviour
                               Debug.Log("🏠 Botón MENÚ PRINCIPAL clickeado");
                               QuitToMainMenu();
                           });
-
     }
 
     GameObject CreateCanvas(string name, int sortOrder)
@@ -99,7 +113,7 @@ public class UIManager : MonoBehaviour
         GameObject canvasObj = new GameObject(name);
         Canvas canvas = canvasObj.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = sortOrder; // Alto para que esté encima de todo
+        canvas.sortingOrder = sortOrder;
 
         CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -196,6 +210,11 @@ public class UIManager : MonoBehaviour
 
     public void ShowPauseMenu()
     {
+        // Solo mostrar si estamos en una escena permitida
+        string currentScene = SceneManager.GetActiveScene().name;
+        if (!IsSceneAllowed(currentScene))
+            return;
+
         Debug.Log("📱 Mostrando menú de pausa");
         if (pauseMenuCanvas != null)
         {
@@ -221,10 +240,18 @@ public class UIManager : MonoBehaviour
 
             Time.timeScale = 1f;
 
-            if (CurrentState == GameState.Playing)
+            // Solo bloquear cursor si estamos en una escena de juego
+            string currentScene = SceneManager.GetActiveScene().name;
+            if (IsSceneAllowed(currentScene) && CurrentState == GameState.Playing)
             {
                 Cursor.visible = false;
                 Cursor.lockState = CursorLockMode.Locked;
+            }
+            else
+            {
+                // En otras escenas (como menú principal), dejar cursor visible
+                Cursor.visible = true;
+                Cursor.lockState = CursorLockMode.None;
             }
 
             PlayerInput playerInput = FindObjectOfType<PlayerInput>();
@@ -237,6 +264,11 @@ public class UIManager : MonoBehaviour
 
     public void PauseGame()
     {
+        // Solo pausar si estamos en una escena permitida
+        string currentScene = SceneManager.GetActiveScene().name;
+        if (!IsSceneAllowed(currentScene))
+            return;
+
         Debug.Log("⏸️ Pausando juego");
         CurrentState = GameState.Paused;
         ShowPauseMenu();
@@ -252,16 +284,26 @@ public class UIManager : MonoBehaviour
     public void QuitToMainMenu()
     {
         Debug.Log("🏠 Volviendo al menú principal");
+
+        // Cerrar el menú de pausa inmediatamente
+        HideAllMenus();
+
         CurrentState = GameState.Playing;
         Time.timeScale = 1f;
+
+        // Cargar el menú principal
         SceneManager.LoadScene("MainMenu");
     }
 
     void Update()
     {
+        // Solo procesar input de pausa si estamos en una escena permitida
+        string currentScene = SceneManager.GetActiveScene().name;
+        if (!IsSceneAllowed(currentScene))
+            return;
+
         if (Input.GetKeyDown(KeyCode.Escape))
         {
-
             if (CurrentState == GameState.Playing)
             {
                 PauseGame();

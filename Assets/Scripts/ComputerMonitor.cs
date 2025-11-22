@@ -300,7 +300,7 @@ public class ComputerMonitor : MonoBehaviour
         CreateText(emailCard.transform, "EmailSubject", "🎉 ¡Buena Suerte en tu Primer Día!", 32,
             new Vector2(0, 180), new Vector2(1400, 50), TextAnchor.MiddleLeft, primaryColor);
 
-        CreateText(emailCard.transform, "EmailFrom", "De: Mamá <mama@familia.com>", 20,
+        CreateText(emailCard.transform, "EmailFrom", "De: tia <mama@familia.com>", 20,
             new Vector2(0, 140), new Vector2(1400, 30), TextAnchor.MiddleLeft, textGray);
 
         CreateText(emailCard.transform, "EmailDate", "Fecha: Hoy 08:00 AM", 20,
@@ -309,12 +309,12 @@ public class ComputerMonitor : MonoBehaviour
         CreatePanel(emailCard.transform, "EmailDivider",
             new Vector2(0, 50), new Vector2(1400, 2), new Color(0.9f, 0.9f, 0.9f, 1f));
 
-        string emailBody = "¡Mucha suerte con tu nueva tienda, hijo! ✨\n\n" +
-                          "Sé que será un gran éxito. Has trabajado muy duro para esto.\n\n" +
-                          "Confío plenamente en ti. Tu dedicación y pasión harán brillar este negocio.\n\n" +
-                          "¡Estoy muy orgullosa!\n\n" +
-                          "Con amor,\n" +
-                          "Mamá 💕";
+        string emailBody = "Mijo, hablé con una conocida y por fin salió algo.\n\n" +
+                          "Mañana te presentas temprano en la tienda OTZO que está por la línea del tren.\n\n" +
+                          "No es el trabajo de tus sueños, pero es un trabajo, y ahorita eso vale oro.\n\n" +
+                          "Tú nomás llega con buena cara, haz lo que te pidan y no te me desanimes.\n\n" +
+                          "Acuérdate: uno empieza donde puede, no donde quiere.\n\n" +
+                          "Te quiero, cuídate.";
 
         // Texto del cuerpo - ajustado
         CreateText(emailCard.transform, "EmailBody", emailBody, 22,

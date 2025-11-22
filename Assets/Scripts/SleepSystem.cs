@@ -13,16 +13,17 @@ public class SleepSystem : MonoBehaviour
     private float lastFatigueUpdateTime = 0f;
     private GameClock gameClock;
 
-    private GUIStyle sleepStyle;
-
     public float CurrentSleepQuality => currentSleepQuality;
     public float SleepQualityPercent => currentSleepQuality / maxSleepQuality;
+
+    // Propiedad para verificar si el sistema de sueño está pausado
+    public bool IsPaused => DayNightTransitionManager.Instance != null &&
+                           DayNightTransitionManager.Instance.IsTransitioning;
 
     void Start()
     {
         currentSleepQuality = PlayerPrefs.GetFloat("SleepQuality", maxSleepQuality);
         lastFatigueUpdateTime = Time.time;
-        CreateGUIStyle();
 
         if (GameManagerPersistent.Instance != null)
         {
@@ -32,21 +33,17 @@ public class SleepSystem : MonoBehaviour
         {
             gameClock = FindFirstObjectByType<GameClock>();
         }
-
-    }
-
-    void CreateGUIStyle()
-    {
-        sleepStyle = new GUIStyle();
-        sleepStyle.fontSize = 16;
-        sleepStyle.normal.textColor = Color.white;
-        sleepStyle.alignment = TextAnchor.UpperLeft;
-        sleepStyle.fontStyle = FontStyle.Bold;
     }
 
     void Update()
     {
         if (!enabled) return;
+
+        // PAUSAR durante transiciones
+        if (IsPaused)
+        {
+            return;
+        }
 
         UpdateFatigue();
     }
@@ -88,26 +85,6 @@ public class SleepSystem : MonoBehaviour
         else fatigueRate *= 2f;
 
         return fatigueRate;
-    }
-
-    void OnGUI()
-    {
-        if (!enabled) return;
-
-        string sleepString = $"Sueño: {currentSleepQuality:F1}%";
-
-        Color sleepColor = GetSleepColor(currentSleepQuality);
-        sleepStyle.normal.textColor = sleepColor;
-
-        GUI.Label(new Rect(10, 10, 200, 30), sleepString, sleepStyle);
-    }
-
-    Color GetSleepColor(float sleepQuality)
-    {
-        if (sleepQuality >= 80f) return Color.green;
-        if (sleepQuality >= 50f) return Color.yellow;
-        if (sleepQuality >= 30f) return new Color(1f, 0.5f, 0f);
-        return Color.red;
     }
 
     public void Sleep()

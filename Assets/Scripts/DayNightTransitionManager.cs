@@ -1,50 +1,40 @@
 ﻿using UnityEngine;
 using System.Collections;
+using UnityEngine.SceneManagement;
 
 public class DayNightTransitionManager : MonoBehaviour
 {
     public static DayNightTransitionManager Instance;
 
     [Header("Configuración Transición")]
-    public float fadeDuration = 2f;
-    public float blackScreenDuration = 1f;
-    public float dialogDuration = 10f;
+    public float fadeInDuration = 2f;
+    public float fadeOutDuration = 2f;
+    public float imageDisplayDuration = 25f;
 
-    [Header("Mensajes Fin de Día")]
-    public string[] goodDayMessages = {
-        "¡Hoy fue un gran día! Las ventas fueron excelentes.",
-        "Los clientes estaban muy contentos con el servicio. Buen trabajo.",
-        "Día productivo, aprendí mucho sobre el negocio.",
-        "Todo salió según lo planeado. Mañana será aún mejor."
-    };
-    public string[] averageDayMessages = {
-        "Día normal, nada extraordinario pero tampoco malo.",
-        "Las ventas fueron regulares. Mañana puede ser mejor.",
-        "Un día más de trabajo, sin mayores complicaciones.",
-        "Ni bueno ni malo, solo otro día en la tienda."
-    };
-    public string[] badDayMessages = {
-        "Hoy fue complicado, los clientes estaban difíciles.",
-        "Las ventas no fueron buenas. Espero que mañana sea mejor.",
-        "Día agotador, muchos problemas que resolver.",
-        "No fue mi mejor día. Necesito descansar y recuperarme."
-    };
+    private bool hasShownRoomToStore = false;
+    private bool hasShownStoreToHome = false;
 
     public bool IsTransitioning { get; private set; } = false;
     private float fadeAlpha = 0f;
+    private float imageAlpha = 0f;
     private float transitionTimer = 0f;
     private Texture2D blackTexture;
-    private bool dialogShown = false;
+    private bool imageShown = false;
     private bool sceneChanged = false;
-    private string currentDialog = "";
+    private Texture2D currentImage;
+    private bool isTransitioningToStore = false;
+    private float dailyEarnings = 0f;
+    private float originalAudioVolume;
+    private bool forceBlackScreen = false;
 
     void Awake()
     {
         if (Instance == null)
         {
             Instance = this;
-            // No DontDestroyOnLoad aquí - será manejado por el sistema persistente
+            DontDestroyOnLoad(gameObject);
             InitializeTransitionManager();
+            SceneManager.sceneLoaded += OnSceneLoaded;
         }
         else
         {
@@ -55,7 +45,13 @@ public class DayNightTransitionManager : MonoBehaviour
     void InitializeTransitionManager()
     {
         CreateBlackTexture();
-        EnsureDialogSystemExists();
+        LoadImagesFromResources();
+    }
+
+    void LoadImagesFromResources()
+    {
+        Texture2D loadedImage1 = Resources.Load<Texture2D>("Images/1");
+        Texture2D loadedImage2 = Resources.Load<Texture2D>("Images/2");
     }
 
     void CreateBlackTexture()
@@ -65,68 +61,161 @@ public class DayNightTransitionManager : MonoBehaviour
         blackTexture.Apply();
     }
 
-    void EnsureDialogSystemExists()
+    void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        DialogSystem existingDialogSystem = FindFirstObjectByType<DialogSystem>();
-        if (existingDialogSystem == null)
+        if (forceBlackScreen)
         {
-            GameObject dialogSystemObj = new GameObject("DialogSystem");
-            dialogSystemObj.AddComponent<DialogSystem>();
+            StartCoroutine(RemoveBlackScreenAfterFrames());
         }
     }
 
-    public void StartDayEndTransition()
+    IEnumerator RemoveBlackScreenAfterFrames()
+    {
+        for (int i = 0; i < 3; i++)
+        {
+            yield return new WaitForEndOfFrame();
+        }
+
+        forceBlackScreen = false;
+        ResumeGameAndAudio();
+        EnableGameUI();
+        EnablePauseFunctionality();
+        EndTransition();
+    }
+
+    public void StartTransitionToStore(float sleepQuality)
     {
         if (IsTransitioning) return;
 
         IsTransitioning = true;
+        isTransitioningToStore = true;
         fadeAlpha = 0f;
+        imageAlpha = 0f;
         transitionTimer = 0f;
-        dialogShown = false;
+        imageShown = false;
         sceneChanged = false;
+        forceBlackScreen = false;
 
-        PrepareDialog();
+        bool shouldShowImage = !hasShownRoomToStore;
+        hasShownRoomToStore = true;
+
+        PrepareStoreTransitionImage(shouldShowImage);
+
+        PauseGameAndAudio();
+        DisableGameUI();
+        DisablePauseFunctionality();
+
+        StartCoroutine(ForceFirstUpdate());
     }
 
-    void PrepareDialog()
+    public void StartTransitionToHome(float earnings)
     {
-        string[] selectedMessages = GetDayEndMessages();
-        int randomIndex = Random.Range(0, selectedMessages.Length);
-        currentDialog = selectedMessages[randomIndex];
+        if (IsTransitioning) return;
+
+        IsTransitioning = true;
+        isTransitioningToStore = false;
+        dailyEarnings = earnings;
+        fadeAlpha = 0f;
+        imageAlpha = 0f;
+        transitionTimer = 0f;
+        imageShown = false;
+        sceneChanged = false;
+        forceBlackScreen = false;
+
+        bool shouldShowImage = !hasShownStoreToHome;
+        hasShownStoreToHome = true;
+
+        PrepareHomeTransitionImage(shouldShowImage);
+
+        PauseGameAndAudio();
+        DisableGameUI();
+        DisablePauseFunctionality();
+
+        StartCoroutine(ForceFirstUpdate());
+    }
+
+    IEnumerator ForceFirstUpdate()
+    {
+        yield return null;
+    }
+
+    void PrepareStoreTransitionImage(bool shouldShowImage)
+    {
+        if (shouldShowImage)
+        {
+            currentImage = Resources.Load<Texture2D>("Images/1");
+        }
+        else
+        {
+            currentImage = null;
+        }
+    }
+
+    void PrepareHomeTransitionImage(bool shouldShowImage)
+    {
+        if (shouldShowImage)
+        {
+            currentImage = Resources.Load<Texture2D>("Images/2");
+        }
+        else
+        {
+            currentImage = null;
+        }
     }
 
     void Update()
     {
         if (!IsTransitioning) return;
 
-        transitionTimer += Time.deltaTime;
+        transitionTimer += Time.unscaledDeltaTime;
 
-        if (transitionTimer <= fadeDuration)
+        if (currentImage != null)
         {
-            fadeAlpha = Mathf.Clamp01(transitionTimer / fadeDuration);
+            HandleTransitionWithImage();
         }
-        else if (transitionTimer <= fadeDuration + blackScreenDuration)
+        else
         {
-            fadeAlpha = 1f;
+            HandleTransitionWithoutImage();
+        }
+    }
 
-            if (!dialogShown && transitionTimer >= fadeDuration + 0.1f)
+    void HandleTransitionWithImage()
+    {
+        float totalDuration = fadeInDuration + imageDisplayDuration + fadeOutDuration;
+        float progress = transitionTimer / totalDuration;
+
+        if (transitionTimer <= fadeInDuration)
+        {
+            float t = transitionTimer / fadeInDuration;
+            fadeAlpha = SmoothStep(t);
+
+            if (transitionTimer > fadeInDuration * 0.3f)
             {
-                ShowDialog();
+                float imageT = (transitionTimer - fadeInDuration * 0.3f) / (fadeInDuration * 0.7f);
+                imageAlpha = SmoothStep(imageT);
             }
         }
-        else if (transitionTimer <= fadeDuration + blackScreenDuration + dialogDuration)
+        else if (transitionTimer <= fadeInDuration + imageDisplayDuration)
         {
             fadeAlpha = 1f;
+            imageAlpha = 1f;
 
-            if (!sceneChanged && transitionTimer >= fadeDuration + blackScreenDuration + 1f)
+            if (!imageShown)
             {
-                ChangeToNightScene();
+                imageShown = true;
             }
         }
-        else if (transitionTimer <= fadeDuration + blackScreenDuration + dialogDuration + fadeDuration)
+        else if (transitionTimer <= totalDuration)
         {
-            float fadeOutTime = transitionTimer - (fadeDuration + blackScreenDuration + dialogDuration);
-            fadeAlpha = 1f - Mathf.Clamp01(fadeOutTime / fadeDuration);
+            float t = (transitionTimer - (fadeInDuration + imageDisplayDuration)) / fadeOutDuration;
+            fadeAlpha = 1f - SmoothStep(t);
+            imageAlpha = 1f - SmoothStep(t);
+
+            // CAMBIO CLAVE: Cambiar escena MUCHO más temprano durante el fade out
+            if (!sceneChanged && transitionTimer >= fadeInDuration + imageDisplayDuration + (fadeOutDuration * 0.2f))
+            {
+                ChangeScene();
+            }
         }
         else
         {
@@ -134,129 +223,191 @@ public class DayNightTransitionManager : MonoBehaviour
         }
     }
 
-    void ShowDialog()
+    void HandleTransitionWithoutImage()
     {
-        dialogShown = true;
-        StartCoroutine(ShowDialogAfterFrame());
-    }
-
-    IEnumerator ShowDialogAfterFrame()
-    {
-        yield return null;
-
-        DialogSystem dialogSystem = FindFirstObjectByType<DialogSystem>();
-
-        if (dialogSystem != null)
+        if (transitionTimer <= fadeInDuration * 0.7f)
         {
-            dialogSystem.ShowInstantDialog(currentDialog, dialogDuration);
+            float t = transitionTimer / (fadeInDuration * 0.7f);
+            fadeAlpha = SmoothStep(t);
+        }
+        else if (transitionTimer <= fadeInDuration * 0.7f + 0.1f)
+        {
+            fadeAlpha = 1f;
+
+            if (!sceneChanged)
+            {
+                ChangeScene();
+            }
+        }
+        else if (transitionTimer <= fadeInDuration * 0.7f + 0.1f + fadeOutDuration * 0.7f)
+        {
+            float t = (transitionTimer - (fadeInDuration * 0.7f + 0.1f)) / (fadeOutDuration * 0.7f);
+            fadeAlpha = 1f - SmoothStep(t);
         }
         else
         {
-            Debug.LogWarning("DialogSystem no encontrado, usando fallback GUI");
-            StartCoroutine(ShowDialogFallback());
+            EndTransition();
         }
     }
 
-    IEnumerator ShowDialogFallback()
+    float SmoothStep(float t)
     {
-        float fallbackTimer = 0f;
-        while (fallbackTimer < 3f)
-        {
-            fallbackTimer += Time.deltaTime;
-            yield return null;
-        }
+        return t * t * (3f - 2f * t);
     }
 
-    void ChangeToNightScene()
+    void ChangeScene()
     {
         if (sceneChanged) return;
 
         sceneChanged = true;
+        forceBlackScreen = true;
 
-        // CAMBIO AQUÍ: Acceder a través de GameManagerPersistent
-        if (GameManagerPersistent.Instance != null && GameManagerPersistent.Instance.gameClock != null)
-        {
-            GameManagerPersistent.Instance.gameClock.ChangeToNightScene();
-        }
-        else
-        {
-            Debug.LogError("No se puede cambiar a escena nocturna: GameClock no disponible");
+        string targetScene = isTransitioningToStore ? "SampleScene" : "room";
 
-            // Fallback: cambiar escena directamente
-            string nightScene = "room";
-            if (IsSceneInBuildSettings(nightScene))
-            {
-                UnityEngine.SceneManagement.SceneManager.LoadScene(nightScene);
-            }
-        }
+        // Forzar pantalla completamente negra antes de cambiar
+        fadeAlpha = 1f;
+        imageAlpha = 0f;
+
+        // Cargar la escena inmediatamente
+        SceneManager.LoadScene(targetScene);
     }
 
-    // Método auxiliar para verificar escenas en build settings
-    private bool IsSceneInBuildSettings(string sceneName)
+    bool IsSceneInBuildSettings(string sceneName)
     {
-        for (int i = 0; i < UnityEngine.SceneManagement.SceneManager.sceneCountInBuildSettings; i++)
+        for (int i = 0; i < SceneManager.sceneCountInBuildSettings; i++)
         {
-            string scenePath = UnityEngine.SceneManagement.SceneUtility.GetScenePathByBuildIndex(i);
+            string scenePath = SceneUtility.GetScenePathByBuildIndex(i);
             string buildSceneName = System.IO.Path.GetFileNameWithoutExtension(scenePath);
-
-            if (buildSceneName == sceneName)
-                return true;
+            if (buildSceneName == sceneName) return true;
         }
         return false;
-    }
-
-    string[] GetDayEndMessages()
-    {
-        int randomChoice = Random.Range(0, 3);
-        switch (randomChoice)
-        {
-            case 0: return goodDayMessages;
-            case 1: return averageDayMessages;
-            default: return badDayMessages;
-        }
     }
 
     void EndTransition()
     {
         IsTransitioning = false;
         fadeAlpha = 0f;
-        dialogShown = false;
+        imageAlpha = 0f;
+        imageShown = false;
         sceneChanged = false;
+        forceBlackScreen = false;
+
+        if (!isTransitioningToStore)
+        {
+            dailyEarnings = 0f;
+        }
+    }
+
+    void PauseGameAndAudio()
+    {
+        Time.timeScale = 0f;
+        originalAudioVolume = AudioListener.volume;
+        AudioListener.volume = 0f;
+    }
+
+    void ResumeGameAndAudio()
+    {
+        Time.timeScale = 1f;
+        AudioListener.volume = originalAudioVolume;
+    }
+
+    void DisableGameUI()
+    {
+        if (GameManagerPersistent.Instance != null && GameManagerPersistent.Instance.gameClock != null)
+        {
+            GameManagerPersistent.Instance.gameClock.enabled = false;
+        }
+
+        if (GameManagerPersistent.Instance != null && GameManagerPersistent.Instance.sleepSystem != null)
+        {
+            GameManagerPersistent.Instance.sleepSystem.enabled = false;
+        }
+    }
+
+    void EnableGameUI()
+    {
+        if (GameManagerPersistent.Instance != null && GameManagerPersistent.Instance.gameClock != null)
+        {
+            GameManagerPersistent.Instance.gameClock.enabled = true;
+        }
+
+        if (GameManagerPersistent.Instance != null && GameManagerPersistent.Instance.sleepSystem != null)
+        {
+            GameManagerPersistent.Instance.sleepSystem.enabled = true;
+        }
+    }
+
+    void DisablePauseFunctionality()
+    {
+        if (UIManager.Instance != null)
+        {
+            UIManager.Instance.enabled = false;
+        }
+    }
+
+    void EnablePauseFunctionality()
+    {
+        if (UIManager.Instance != null)
+        {
+            UIManager.Instance.enabled = true;
+        }
     }
 
     void OnGUI()
     {
+        if (!IsTransitioning && !forceBlackScreen) return;
+
+        if (forceBlackScreen)
+        {
+            GUI.color = Color.black;
+            GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), blackTexture);
+            return;
+        }
+
         if (fadeAlpha > 0f)
         {
             GUI.color = new Color(1, 1, 1, fadeAlpha);
             GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), blackTexture);
-            GUI.color = Color.white;
         }
 
-        if (dialogShown && fadeAlpha >= 1f && !string.IsNullOrEmpty(currentDialog))
+        if (currentImage != null && imageAlpha > 0f)
         {
-            GUIStyle dialogStyle = new GUIStyle();
-            dialogStyle.normal.textColor = Color.white;
-            dialogStyle.fontSize = 24;
-            dialogStyle.alignment = TextAnchor.MiddleCenter;
-            dialogStyle.wordWrap = true;
-            dialogStyle.normal.background = MakeTex(2, 2, new Color(0f, 0f, 0f, 0.8f));
+            GUI.color = new Color(1, 1, 1, imageAlpha);
+            Rect fullScreenRect = new Rect(0, 0, Screen.width, Screen.height);
+            GUI.DrawTexture(fullScreenRect, currentImage, ScaleMode.StretchToFill);
+        }
 
-            Rect dialogRect = new Rect(Screen.width * 0.1f, Screen.height * 0.7f,
-                                     Screen.width * 0.8f, Screen.height * 0.2f);
-
-            GUI.Label(dialogRect, currentDialog, dialogStyle);
+        if (currentImage != null && imageAlpha >= 0.8f)
+        {
+            DrawLoadingBar();
         }
     }
 
-    private Texture2D MakeTex(int width, int height, Color col)
+    void DrawLoadingBar()
     {
-        Color[] pix = new Color[width * height];
-        for (int i = 0; i < pix.Length; i++)
-            pix[i] = col;
-        Texture2D result = new Texture2D(width, height);
-        result.SetPixels(pix);
-        result.Apply();
-        return result;
+        float totalDuration = fadeInDuration + imageDisplayDuration + fadeOutDuration;
+        float progress = Mathf.Clamp01(transitionTimer / totalDuration);
+
+        float barWidth = Screen.width * 0.4f;
+        float barHeight = 12f;
+        float barX = (Screen.width - barWidth) * 0.5f;
+        float barY = Screen.height - 60f;
+
+        Rect progressRect = new Rect(barX, barY, barWidth * progress, barHeight);
+        Color progressColor = Color.Lerp(new Color(1f, 0.5f, 0.2f), new Color(0.3f, 0.9f, 0.4f), progress);
+        GUI.color = progressColor;
+        GUI.DrawTexture(progressRect, Texture2D.whiteTexture);
+    }
+
+    [ContextMenu("Reset Transition Flags")]
+    public void ResetTransitionFlags()
+    {
+        hasShownRoomToStore = false;
+        hasShownStoreToHome = false;
+    }
+
+    void OnDestroy()
+    {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
     }
 }

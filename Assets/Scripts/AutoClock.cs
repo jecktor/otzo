@@ -3,6 +3,7 @@ using System;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
+using System.Collections;
 
 public class GameClock : MonoBehaviour
 {
@@ -34,6 +35,15 @@ public class GameClock : MonoBehaviour
     public string CurrentTimeString => $"{currentHour:00}:{currentMinute:00}";
     public string FullTimeString => $"Día {currentDay} - {currentHour:00}:{currentMinute:00}";
 
+    // Propiedad para verificar si el reloj está pausado
+    public bool IsPaused => DayNightTransitionManager.Instance != null &&
+                           DayNightTransitionManager.Instance.IsTransitioning;
+
+    // Tamaños base para 1080p que se escalarán automáticamente
+    private int baseFontSizeClock = 24;
+    private int baseFontSizeSleep = 20;
+    private Vector2 baseScreenReference = new Vector2(1920, 1080);
+
     void Start()
     {
         currentDay = PlayerPrefs.GetInt("CurrentDay", startDay);
@@ -41,7 +51,24 @@ public class GameClock : MonoBehaviour
         CalculateGameTime();
 
         CreateGUIStyles();
+        EnsureTransitionManagerExists();
         SceneManager.sceneLoaded += OnSceneLoaded;
+
+        Debug.Log($"🕒 GameClock iniciado - Día {currentDay}");
+    }
+
+    void EnsureTransitionManagerExists()
+    {
+        if (DayNightTransitionManager.Instance == null)
+        {
+            GameObject transitionManagerObj = new GameObject("DayNightTransitionManager");
+            transitionManagerObj.AddComponent<DayNightTransitionManager>();
+            Debug.Log("🔄 DayNightTransitionManager creado automáticamente");
+        }
+        else
+        {
+            Debug.Log("✅ DayNightTransitionManager ya existe");
+        }
     }
 
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -49,7 +76,7 @@ public class GameClock : MonoBehaviour
         StartCoroutine(CleanupAfterSceneLoad());
     }
 
-    System.Collections.IEnumerator CleanupAfterSceneLoad()
+    IEnumerator CleanupAfterSceneLoad()
     {
         yield return new WaitForEndOfFrame();
         yield return new WaitForEndOfFrame();
@@ -58,34 +85,56 @@ public class GameClock : MonoBehaviour
 
     void CreateGUIStyles()
     {
+        // Calcular escala basada en la resolución actual
+        float scaleFactor = CalculateScaleFactor();
+
+        // Estilo para el reloj
         clockStyle = new GUIStyle();
-        clockStyle.fontSize = 20;
+        clockStyle.fontSize = Mathf.RoundToInt(baseFontSizeClock * scaleFactor);
         clockStyle.normal.textColor = Color.white;
         clockStyle.alignment = TextAnchor.UpperRight;
         clockStyle.fontStyle = FontStyle.Bold;
 
+        // Estilo para el sueño
         sleepStyle = new GUIStyle();
-        sleepStyle.fontSize = 16;
+        sleepStyle.fontSize = Mathf.RoundToInt(baseFontSizeSleep * scaleFactor);
         sleepStyle.normal.textColor = Color.white;
         sleepStyle.alignment = TextAnchor.UpperLeft;
         sleepStyle.fontStyle = FontStyle.Bold;
+
+        Debug.Log($"📐 Escala GUI calculada: {scaleFactor:F2} (Resolución: {Screen.width}x{Screen.height})");
     }
 
-    void InitializeClock()
+    float CalculateScaleFactor()
     {
-        currentHour = startHour;
-        currentMinute = 0;
-        currentDay = startDay;
-        gameTime = 0f;
-        fivePMTriggered = false;
-        isNightScene = false;
-        lastCheckedHour = -1;
-        clockTimeMultiplier = 1f;
+        // Calcular escala basada en la altura de la pantalla (más consistente que el ancho)
+        float referenceHeight = baseScreenReference.y;
+        float currentHeight = Screen.height;
+
+        // Usar una escala logarítmica suave para mejor adaptación
+        float scale = currentHeight / referenceHeight;
+
+        // Limitar la escala para evitar textos demasiado grandes o pequeños
+        scale = Mathf.Clamp(scale, 0.5f, 2.0f);
+
+        return scale;
+    }
+
+    int GetScaledValue(int baseValue)
+    {
+        float scaleFactor = CalculateScaleFactor();
+        return Mathf.RoundToInt(baseValue * scaleFactor);
     }
 
     void Update()
     {
         if (!enabled) return;
+
+        // PAUSAR durante transiciones
+        if (IsPaused)
+        {
+            return;
+        }
 
         float deltaTime = Time.deltaTime;
         gameTime += deltaTime * clockTimeMultiplier;
@@ -121,14 +170,19 @@ public class GameClock : MonoBehaviour
 
     void CheckFor5PM()
     {
+        // No verificar las 5 PM durante transiciones
+        if (IsPaused) return;
+
         if (Input.GetKeyDown(KeyCode.T))
         {
+            Debug.Log("🔑 Tecla T presionada - Forzando transición");
             ForceDayEndTransition();
         }
 
         if (currentHour == 17 && currentMinute == 0 && !fivePMTriggered)
         {
             fivePMTriggered = true;
+            Debug.Log("🕔 ¡Son las 5 PM! Iniciando transición a casa");
             OnFivePMReached?.Invoke();
             ChangeToNightScene();
         }
@@ -143,9 +197,27 @@ public class GameClock : MonoBehaviour
     {
         if (!enabled) return;
 
-        string timeString = $"Día {currentDay} - {currentHour:00}:{currentMinute:00}";
-        GUI.Label(new Rect(Screen.width - 300, 10, 290, 30), timeString, clockStyle);
+        // Recalcular estilos en cada frame para adaptarse a cambios de resolución
+        CreateGUIStyles();
 
+        string timeString = $"Día {currentDay} - {currentHour:00}:{currentMinute:00}";
+
+        // Mostrar indicador de pausa si está en transición
+        if (IsPaused)
+        {
+            timeString += " ⏸️";
+        }
+
+        // Calcular posición y tamaño responsivos
+        float padding = GetScaledValue(20);
+        float labelWidth = GetScaledValue(300);
+        float labelHeight = GetScaledValue(35);
+
+        // Reloj (esquina superior derecha)
+        Rect clockRect = new Rect(Screen.width - labelWidth - padding, padding, labelWidth, labelHeight);
+        GUI.Label(clockRect, timeString, clockStyle);
+
+        // Sueño (esquina superior izquierda)
         if (GameManagerPersistent.Instance != null && GameManagerPersistent.Instance.sleepSystem != null)
         {
             float sleepQuality = GameManagerPersistent.Instance.sleepSystem.CurrentSleepQuality;
@@ -154,7 +226,8 @@ public class GameClock : MonoBehaviour
             Color sleepColor = GetSleepColor(sleepQuality);
             sleepStyle.normal.textColor = sleepColor;
 
-            GUI.Label(new Rect(10, 10, 200, 30), sleepString, sleepStyle);
+            Rect sleepRect = new Rect(padding, padding, labelWidth, labelHeight);
+            GUI.Label(sleepRect, sleepString, sleepStyle);
         }
     }
 
@@ -168,16 +241,82 @@ public class GameClock : MonoBehaviour
 
     public void SleepAndAdvanceTime()
     {
-        currentDay++;
-        SetExactTime(8, 0);
+        Debug.Log("🛌 Método SleepAndAdvanceTime llamado");
 
-        if (IsNightScene)
+        // Obtener calidad de sueño para el mensaje
+        float sleepQuality = 50f;
+        if (GameManagerPersistent.Instance != null && GameManagerPersistent.Instance.sleepSystem != null)
         {
+            sleepQuality = GameManagerPersistent.Instance.sleepSystem.CurrentSleepQuality;
+        }
+
+        Debug.Log($"😴 Durmiendo... Día actual: {currentDay}, Calidad de sueño: {sleepQuality}");
+
+        // Iniciar transición a la tienda
+        if (DayNightTransitionManager.Instance != null)
+        {
+            Debug.Log("🚀 Llamando a StartTransitionToStore...");
+            DayNightTransitionManager.Instance.StartTransitionToStore(sleepQuality);
+        }
+        else
+        {
+            Debug.LogError("❌ DayNightTransitionManager.Instance es NULL! Usando fallback");
+            // Fallback: cambiar directamente
             ChangeToDayScene();
         }
 
+        currentDay++;
+        SetExactTime(8, 0);
+
         PlayerPrefs.SetInt("CurrentDay", currentDay);
         PlayerPrefs.Save();
+
+        Debug.Log($"✅ Día avanzado a: {currentDay}");
+    }
+
+    public void ChangeToNightScene()
+    {
+        if (!enabled) return;
+
+        Debug.Log("🌙 ChangeToNightScene llamado");
+
+        float dailyEarnings = CalculateDailyEarnings();
+        Debug.Log($"💰 Ganancias del día calculadas: ${dailyEarnings}");
+
+        if (DayNightTransitionManager.Instance != null)
+        {
+            Debug.Log("🚀 Llamando a StartTransitionToHome...");
+            DayNightTransitionManager.Instance.StartTransitionToHome(dailyEarnings);
+        }
+        else
+        {
+            Debug.LogError("❌ DayNightTransitionManager.Instance es NULL! Usando fallback directo");
+            string nightScene = "room";
+            if (IsSceneInBuildSettings(nightScene))
+            {
+                isNightScene = true;
+                clockTimeMultiplier = nightClockSlowdown;
+                UnityEngine.SceneManagement.SceneManager.LoadScene(nightScene);
+            }
+        }
+    }
+
+    private float CalculateDailyEarnings()
+    {
+        // Ejemplo simple - reemplazar con tu lógica real
+        float baseEarnings = 100f;
+        float randomBonus = UnityEngine.Random.Range(-30f, 100f);
+
+        // Bonus por mejoras de tienda compradas
+        float shopBonus = 0f;
+        if (ShopManager.Instance != null && ShopManager.Instance.IsUpgradePurchased("🌟 Mejorar Actitud Clientes"))
+        {
+            shopBonus = 50f;
+        }
+
+        float total = baseEarnings + randomBonus + shopBonus;
+        Debug.Log($"💰 Cálculo de ganancias: Base={baseEarnings}, Bonus={randomBonus}, Shop={shopBonus}, Total={total}");
+        return total;
     }
 
     public void SetExactTime(int targetHour, int targetMinute)
@@ -195,24 +334,11 @@ public class GameClock : MonoBehaviour
         CalculateGameTime();
     }
 
-    public void ChangeToNightScene()
-    {
-        if (!enabled) return;
-
-        ReEnablePlayerControl();
-
-        string nightScene = "room";
-        if (IsSceneInBuildSettings(nightScene))
-        {
-            isNightScene = true;
-            clockTimeMultiplier = nightClockSlowdown;
-            UnityEngine.SceneManagement.SceneManager.LoadScene(nightScene);
-        }
-    }
-
     public void ChangeToDayScene()
     {
         if (!enabled) return;
+
+        Debug.Log("☀️ ChangeToDayScene llamado (fallback)");
         ReEnablePlayerControl();
 
         string dayScene = "SampleScene";
@@ -221,6 +347,11 @@ public class GameClock : MonoBehaviour
             isNightScene = false;
             clockTimeMultiplier = 1f;
             UnityEngine.SceneManagement.SceneManager.LoadScene(dayScene);
+            Debug.Log("✅ Cambiado a escena de día directamente");
+        }
+        else
+        {
+            Debug.LogError($"❌ Escena '{dayScene}' no encontrada en build settings");
         }
     }
 
@@ -248,7 +379,10 @@ public class GameClock : MonoBehaviour
         {
             string scenePath = UnityEngine.SceneManagement.SceneUtility.GetScenePathByBuildIndex(i);
             string buildSceneName = System.IO.Path.GetFileNameWithoutExtension(scenePath);
-            if (buildSceneName == sceneName) return true;
+            if (buildSceneName == sceneName)
+            {
+                return true;
+            }
         }
         return false;
     }
@@ -268,6 +402,7 @@ public class GameClock : MonoBehaviour
 
     public void ForceDayEndTransition()
     {
+        Debug.Log("🔑 Transición forzada a casa");
         ChangeToNightScene();
     }
 
