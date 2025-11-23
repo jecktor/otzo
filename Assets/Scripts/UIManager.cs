@@ -18,7 +18,7 @@ public class UIManager : MonoBehaviour
 
     private GameObject pauseMenuCanvas;
     private GameObject eventSystem;
-    private string[] allowedScenes = { "SampleScene", "room" };
+	private string[] allowedScenes = { "SampleScene", "room", "endless" };
 
     void Awake()
     {

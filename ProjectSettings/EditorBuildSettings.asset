@@ -14,5 +14,8 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/room.unity
     guid: e98b520fb17954746a808f2ac93e2956
+  - enabled: 1
+    path: Assets/Scenes/endless.unity
+    guid: 89003d2eab567435394f3def44de24c8
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0

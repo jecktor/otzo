@@ -40,6 +40,19 @@ public class GameManager : MonoBehaviour
 
         SceneManager.LoadScene("SampleScene");
     }
+    
+	public void StartArcade()
+	{
+		CurrentState = GameState.Playing;
+		Time.timeScale = 1f;
+
+		// OCULTAR CURSOR al empezar el juego
+		Cursor.visible = false;
+		Cursor.lockState = CursorLockMode.Locked;
+		Debug.Log("🎯 Cursor ocultado para modo juego");
+
+		SceneManager.LoadScene("endless");
+	}
 
     public void TogglePause()
     {

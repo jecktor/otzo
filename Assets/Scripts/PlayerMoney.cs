@@ -4,13 +4,14 @@ using TMPro;
 public class PlayerWallet : MonoBehaviour
 {
     [Header("UI Display")]
-    public TextMeshProUGUI moneyText;
+	public TextMeshProUGUI moneyText;
+	public bool keepMoney = true;
 
-    public static float totalMoney = 2500f;
+    public static float totalMoney = 0f;
 
     void Start()
     {
-        totalMoney = PlayerPrefs.GetFloat("PlayerMoney", 2500f);
+	    totalMoney = keepMoney ? PlayerPrefs.GetFloat("PlayerMoney", 0f) : 0f;
         UpdateDisplay();
     }
 
@@ -38,7 +39,8 @@ public class PlayerWallet : MonoBehaviour
     }
 
     void SaveMoney()
-    {
+	{
+		if (!keepMoney) return;
         PlayerPrefs.SetFloat("PlayerMoney", totalMoney);
         PlayerPrefs.Save();
     }
@@ -57,7 +59,7 @@ public class PlayerWallet : MonoBehaviour
     [ContextMenu("Reset Money")]
     public void ResetMoney()
     {
-        totalMoney = 2500f;
+        totalMoney = 0f;
         SaveMoney();
         UpdateDisplay();
     }

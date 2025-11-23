@@ -51,6 +51,14 @@ public class GameManagerPersistent : MonoBehaviour
             Cursor.visible = false;
             Cursor.lockState = CursorLockMode.Locked;
         }
+        else if (scene.name == "endless")
+        {
+	        if (gameClock != null) gameClock.enabled = false;
+	        if (sleepSystem != null) sleepSystem.enabled = false;
+
+	        Cursor.visible = false;
+	        Cursor.lockState = CursorLockMode.Locked;
+        }
     }
 
     void OnDestroy()
