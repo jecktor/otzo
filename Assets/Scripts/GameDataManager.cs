@@ -51,7 +51,7 @@ public class GameDataManager : MonoBehaviour
 
         try
         {
-            float money = PlayerPrefs.GetFloat("PlayerMoney", 2500f);
+            float money = PlayerPrefs.GetFloat("PlayerMoney", 0f);
             float sleepQuality = PlayerPrefs.GetFloat("SleepQuality", 100f);
             int currentDay = PlayerPrefs.GetInt("CurrentDay", 1);
             string upgrades = PlayerPrefs.GetString("PurchasedUpgrades", "");
@@ -103,7 +103,7 @@ public class GameDataManager : MonoBehaviour
             {
                 Dictionary<string, object> data = snapshot.ToDictionary();
 
-                float money = data.ContainsKey("money") ? System.Convert.ToSingle(data["money"]) : 2500f;
+                float money = data.ContainsKey("money") ? System.Convert.ToSingle(data["money"]) : 0f;
                 float sleepQuality = data.ContainsKey("sleepQuality") ? System.Convert.ToSingle(data["sleepQuality"]) : 100f;
                 int currentDay = data.ContainsKey("dayGame") ? System.Convert.ToInt32(data["dayGame"]) : 1;
                 string upgrades = data.ContainsKey("upgrades") ? data["upgrades"].ToString() : "";
@@ -183,7 +183,7 @@ public class GameDataManager : MonoBehaviour
 
     public void CreateDefaultUserData()
     {
-        float defaultMoney = 2500f;
+        float defaultMoney = 0f;
         float defaultSleep = 100f;
         int defaultDay = 1; // **SIEMPRE día 1 por defecto**
         string defaultUpgrades = "";
@@ -214,7 +214,7 @@ public class GameDataManager : MonoBehaviour
 
     public void ShowCurrentData()
     {
-        float money = PlayerPrefs.GetFloat("PlayerMoney", 2500f);
+        float money = PlayerPrefs.GetFloat("PlayerMoney", 0f);
         float sleep = PlayerPrefs.GetFloat("SleepQuality", 100f);
         int day = PlayerPrefs.GetInt("CurrentDay", 1);
         string upgrades = PlayerPrefs.GetString("PurchasedUpgrades", "");

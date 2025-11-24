@@ -105,12 +105,8 @@ public class BedTriggerSleep : MonoBehaviour
         {
             int dayBeforeSleep = gameClock.CurrentDay;
 
-            // **CORRECCIÓN: Solo marcar primer día como completado si realmente es el primer día**
-            if (gameClock.IsFirstDay())
-            {
-                gameClock.CompleteFirstDay();
-                Debug.Log("🎯 Marcando primer día como completado");
-            }
+            // ⚠️ YA NO NECESITAS ESTO - GameClock lo maneja automáticamente
+            // gameClock.CompleteFirstDay(); ← ELIMINAR ESTA LÍNEA
 
             float sleepBefore = sleepSystem.CurrentSleepQuality;
             sleepSystem.Sleep();
@@ -121,7 +117,6 @@ public class BedTriggerSleep : MonoBehaviour
             Debug.Log($"🛌 Dormido - Día: {dayBeforeSleep} → {gameClock.CurrentDay}, Sueño: {sleepBefore:F1}% → {sleepAfter:F1}%");
         }
     }
-
     void CreateGUIStyle()
     {
         guiStyle = new GUIStyle();

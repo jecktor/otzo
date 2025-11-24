@@ -20,6 +20,7 @@ public class DayNightTransitionManager : MonoBehaviour
     private float imageAlpha = 0f;
     private float transitionTimer = 0f;
     private Texture2D blackTexture;
+    private Texture2D whiteTexture; // ⚠️ NUEVO: Cachear textura blanca
     private bool imageShown = false;
     private bool sceneChanged = false;
     private Texture2D currentImage;
@@ -48,6 +49,7 @@ public class DayNightTransitionManager : MonoBehaviour
     void InitializeTransitionManager()
     {
         CreateBlackTexture();
+        CreateWhiteTexture(); // ⚠️ NUEVO: Crear textura blanca una sola vez
         LoadImagesFromResources();
     }
 
@@ -57,6 +59,13 @@ public class DayNightTransitionManager : MonoBehaviour
         Texture2D loadedImage1 = Resources.Load<Texture2D>("Images/1");
         Texture2D loadedImage2 = Resources.Load<Texture2D>("Images/2");
         Texture2D loadedIntro = Resources.Load<Texture2D>("Images/intro");
+
+        if (loadedImage1 == null)
+            Debug.LogWarning("⚠️ No se encontró Images/1");
+        if (loadedImage2 == null)
+            Debug.LogWarning("⚠️ No se encontró Images/2");
+        if (loadedIntro == null)
+            Debug.LogWarning("⚠️ No se encontró Images/intro");
     }
 
     void CreateBlackTexture()
@@ -64,6 +73,14 @@ public class DayNightTransitionManager : MonoBehaviour
         blackTexture = new Texture2D(1, 1);
         blackTexture.SetPixel(0, 0, Color.black);
         blackTexture.Apply();
+    }
+
+    // ⚠️ NUEVO: Crear textura blanca una sola vez
+    void CreateWhiteTexture()
+    {
+        whiteTexture = new Texture2D(1, 1);
+        whiteTexture.SetPixel(0, 0, Color.white);
+        whiteTexture.Apply();
     }
 
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -106,7 +123,9 @@ public class DayNightTransitionManager : MonoBehaviour
         currentImage = Resources.Load<Texture2D>("Images/intro");
         if (currentImage == null)
         {
+            Debug.LogWarning("⚠️ Imagen intro no encontrada, cargando escena directamente");
             SceneManager.LoadScene(sceneToLoad);
+            IsTransitioning = false;
             return;
         }
 
@@ -180,6 +199,10 @@ public class DayNightTransitionManager : MonoBehaviour
         if (shouldShowImage)
         {
             currentImage = Resources.Load<Texture2D>("Images/1");
+            if (currentImage == null)
+            {
+                Debug.LogWarning("⚠️ No se encontró Images/1");
+            }
         }
         else
         {
@@ -192,6 +215,10 @@ public class DayNightTransitionManager : MonoBehaviour
         if (shouldShowImage)
         {
             currentImage = Resources.Load<Texture2D>("Images/2");
+            if (currentImage == null)
+            {
+                Debug.LogWarning("⚠️ No se encontró Images/2");
+            }
         }
         else
         {
@@ -302,6 +329,7 @@ public class DayNightTransitionManager : MonoBehaviour
         fadeAlpha = 1f;
         imageAlpha = 0f;
 
+        Debug.Log($"🔄 Cambiando a escena: {targetScene}");
         SceneManager.LoadScene(targetScene);
     }
 
@@ -320,6 +348,8 @@ public class DayNightTransitionManager : MonoBehaviour
         {
             dailyEarnings = 0f;
         }
+
+        Debug.Log("✅ Transición completada");
     }
 
     void PauseGameAndAudio()
@@ -420,7 +450,9 @@ public class DayNightTransitionManager : MonoBehaviour
         Rect progressRect = new Rect(barX, barY, barWidth * progress, barHeight);
         Color progressColor = Color.Lerp(new Color(1f, 0.5f, 0.2f), new Color(0.3f, 0.9f, 0.4f), progress);
         GUI.color = progressColor;
-        GUI.DrawTexture(progressRect, Texture2D.whiteTexture);
+
+        // ⚠️ CORRECCIÓN: Usar textura cacheada en lugar de Texture2D.whiteTexture
+        GUI.DrawTexture(progressRect, whiteTexture);
     }
 
     [ContextMenu("Reset Transition Flags")]
@@ -429,10 +461,26 @@ public class DayNightTransitionManager : MonoBehaviour
         hasShownRoomToStore = false;
         hasShownStoreToHome = false;
         hasShownIntro = false;
+        Debug.Log("🔄 Flags de transición reseteadas");
     }
 
     void OnDestroy()
     {
+        // ⚠️ CRÍTICO: Limpiar texturas al destruir
+        if (blackTexture != null)
+        {
+            Destroy(blackTexture);
+            blackTexture = null;
+        }
+
+        if (whiteTexture != null)
+        {
+            Destroy(whiteTexture);
+            whiteTexture = null;
+        }
+
         SceneManager.sceneLoaded -= OnSceneLoaded;
+
+        Debug.Log("🧹 DayNightTransitionManager limpiado");
     }
 }

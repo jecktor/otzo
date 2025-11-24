@@ -160,18 +160,15 @@ public class GameManager : MonoBehaviour
 
         PlayerPrefs.DeleteKey("PlayerMoney");
         PlayerPrefs.DeleteKey("SleepQuality");
-        PlayerPrefs.SetInt("CurrentDay", 1); // **FIJO en 1**
+        PlayerPrefs.SetInt("CurrentDay", 1);
+        PlayerPrefs.SetInt("LastSavedDay", 1); // ⚠️ NUEVO: Resetear checkpoint
+        PlayerPrefs.SetInt("HasCompletedFirstCycle", 0);
         PlayerPrefs.DeleteKey("PurchasedUpgrades");
         PlayerPrefs.DeleteKey("BestScore");
+        PlayerPrefs.DeleteKey("HasReadFirstDayEmail");
         PlayerPrefs.Save();
 
-        // **FORZAR que sea día 1 inmediatamente**
-        if (FindObjectOfType<GameClock>() != null)
-        {
-            FindObjectOfType<GameClock>().SetExactTime(21, 0);
-        }
-
-        Debug.Log("✅ Datos locales reseteados - Día forzado a 1");
+        Debug.Log("✅ Datos locales reseteados - Día 1, checkpoint en día 1");
     }
     private async Task ResetGameData()
     {
@@ -268,7 +265,7 @@ public class GameManager : MonoBehaviour
 
         if (dataManager != null)
         {
-            float defaultMoney = 2500f;
+            float defaultMoney = 0f;
             float defaultSleep = 100f;
             int defaultDay = 1;
             string defaultUpgrades = "";
