@@ -4,9 +4,10 @@ public class SleepSystem : MonoBehaviour
 {
     [Header("Configuración Sueño")]
     public float maxSleepQuality = 100f;
-    public float sleepDeprivationPenalty = 2f;
+    public float sleepDeprivationPenalty = .1f;
     public int optimalSleepHour = 22;
-    public float baseFatigueRate = 0.5f;
+    public float baseFatigueRate = 0.01f; // REDUCIDO de 0.5f a 0.2f
+    public float maxSleepRecovery = 100f; // NUEVO: Máximo recuperable al dormir
 
     private float currentSleepQuality;
     private float fatigueAccumulator = 0f;
@@ -33,6 +34,8 @@ public class SleepSystem : MonoBehaviour
         {
             gameClock = FindFirstObjectByType<GameClock>();
         }
+
+        Debug.Log($"😴 Sistema de sueño iniciado - Calidad actual: {currentSleepQuality:F1}%");
     }
 
     void Update()
@@ -53,20 +56,22 @@ public class SleepSystem : MonoBehaviour
         float currentTime = Time.time;
         float timeSinceLastUpdate = currentTime - lastFatigueUpdateTime;
 
-        if (timeSinceLastUpdate >= 1f)
+        // **CORRECCIÓN: Actualizar cada 2 segundos en lugar de cada segundo**
+        if (timeSinceLastUpdate >= 2f) // CAMBIADO de 1f a 2f
         {
             float fatigueRate = CalculateFatigueRate();
 
             if (gameClock != null && gameClock.IsNightScene)
             {
-                fatigueRate *= 1.5f;
+                fatigueRate *= 1.3f; // REDUCIDO de 1.5f a 1.3f
             }
 
-            float fatigueThisSecond = fatigueRate * timeSinceLastUpdate;
-            currentSleepQuality = Mathf.Clamp(currentSleepQuality - fatigueThisSecond, 0f, maxSleepQuality);
+            float fatigueThisUpdate = fatigueRate * (timeSinceLastUpdate / 2f); // Ajustado por el nuevo intervalo
+            currentSleepQuality = Mathf.Clamp(currentSleepQuality - fatigueThisUpdate, 0f, maxSleepQuality);
             lastFatigueUpdateTime = currentTime;
 
-            if (Mathf.FloorToInt(currentTime) % 10 == 0)
+            // **CORRECCIÓN: Guardar menos frecuentemente**
+            if (Mathf.FloorToInt(currentTime) % 30 == 0) // CAMBIADO de 10 a 30 segundos
             {
                 SaveSleep();
             }
@@ -78,17 +83,20 @@ public class SleepSystem : MonoBehaviour
         float sleepPercent = SleepQualityPercent;
         float fatigueRate = baseFatigueRate;
 
-        if (sleepPercent >= 0.8f) fatigueRate *= 0.2f;
-        else if (sleepPercent >= 0.6f) fatigueRate *= 0.5f;
-        else if (sleepPercent >= 0.4f) fatigueRate *= 0.8f;
-        else if (sleepPercent >= 0.2f) fatigueRate *= 1.5f;
-        else fatigueRate *= 2f;
+        // **CORRECCIÓN: Tasas de fatiga más balanceadas**
+        if (sleepPercent >= 0.8f) fatigueRate *= 0.1f;      // Muy descansado: fatiga muy lenta
+        else if (sleepPercent >= 0.6f) fatigueRate *= 0.3f; // Descansado: fatiga lenta
+        else if (sleepPercent >= 0.4f) fatigueRate *= 0.6f; // Normal: fatiga moderada
+        else if (sleepPercent >= 0.2f) fatigueRate *= 1.2f; // Cansado: fatiga rápida
+        else fatigueRate *= 2f;                             // Agotado: fatiga muy rápida
 
         return fatigueRate;
     }
 
     public void Sleep()
     {
+        float sleepQualityBefore = currentSleepQuality;
+
         if (gameClock != null)
         {
             int hourSlept = gameClock.CurrentHour;
@@ -99,7 +107,16 @@ public class SleepSystem : MonoBehaviour
             currentSleepQuality = CalculateSleepQuality(22);
         }
 
+        // **NUEVA LÓGICA: Si tenía más de 70% antes de dormir, establecer a 70% máximo**
+        if (sleepQualityBefore >= 95f)
+        {
+            currentSleepQuality = 95;
+            Debug.Log($"🛌 Sueño limitado a {maxSleepRecovery}% (tenías {sleepQualityBefore:F1}%)");
+        }
+
         SaveSleep();
+
+        Debug.Log($"😴 Durmiendo - Antes: {sleepQualityBefore:F1}%, Después: {currentSleepQuality:F1}%");
     }
 
     public float CalculateSleepQuality(int hourSlept)
@@ -114,26 +131,30 @@ public class SleepSystem : MonoBehaviour
         else
         {
             int hoursAfterOptimal = hourSlept - optimalSleepHour;
-            sleepPenalty = hoursAfterOptimal * sleepDeprivationPenalty * 2f;
+            sleepPenalty = hoursAfterOptimal * sleepDeprivationPenalty * 1.5f; // REDUCIDO de 2f a 1.5f
         }
 
-        return Mathf.Clamp(maxSleepQuality - sleepPenalty, 10f, maxSleepQuality);
+        // **CORRECCIÓN: Mínimo de sueño aumentado de 10f a 20f**
+        return Mathf.Clamp(maxSleepQuality - sleepPenalty, 20f, maxSleepQuality);
     }
 
     public void ModifySleepQuality(float amount)
     {
+        float oldQuality = currentSleepQuality;
         currentSleepQuality = Mathf.Clamp(currentSleepQuality + amount, 0f, maxSleepQuality);
         SaveSleep();
+
+        Debug.Log($"📊 Sueño modificado: {oldQuality:F1}% → {currentSleepQuality:F1}% ({amount:+#;-#;0})");
     }
 
     public string GetFatigueStatus()
     {
         float percent = SleepQualityPercent;
-        if (percent >= 0.8f) return "Descansado";
-        if (percent >= 0.6f) return "Alerta";
-        if (percent >= 0.4f) return "Cansado";
-        if (percent >= 0.2f) return "Fatigado";
-        return "Agotado";
+        if (percent >= 0.8f) return "💪 Descansado";
+        if (percent >= 0.6f) return "😊 Alerta";
+        if (percent >= 0.4f) return "😐 Cansado";
+        if (percent >= 0.2f) return "😫 Fatigado";
+        return "😴 Agotado";
     }
 
     void SaveSleep()
@@ -148,5 +169,33 @@ public class SleepSystem : MonoBehaviour
         currentSleepQuality = maxSleepQuality;
         SaveSleep();
         Debug.Log("😴 Sueño reseteado al 100%");
+    }
+
+    [ContextMenu("Set Sleep to 50%")]
+    public void SetSleepTo50Percent()
+    {
+        currentSleepQuality = maxSleepQuality * 0.5f;
+        SaveSleep();
+        Debug.Log("😴 Sueño establecido al 50%");
+    }
+
+    [ContextMenu("Set Sleep to 80%")]
+    public void SetSleepTo80Percent()
+    {
+        currentSleepQuality = maxSleepQuality * 0.8f;
+        SaveSleep();
+        Debug.Log("😴 Sueño establecido al 80%");
+    }
+
+    // **NUEVO: Método para debug del sistema de sueño**
+    public void DebugSleepInfo()
+    {
+        Debug.Log($"=== DEBUG SUEÑO ===");
+        Debug.Log($"Calidad actual: {currentSleepQuality:F1}%");
+        Debug.Log($"Porcentaje: {SleepQualityPercent:P1}");
+        Debug.Log($"Estado: {GetFatigueStatus()}");
+        Debug.Log($"Tasa de fatiga base: {baseFatigueRate:F3}");
+        Debug.Log($"Tasa actual: {CalculateFatigueRate():F3}");
+        Debug.Log($"Máximo recuperable: {maxSleepRecovery}%");
     }
 }

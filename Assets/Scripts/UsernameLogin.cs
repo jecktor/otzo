@@ -4,6 +4,7 @@ using Firebase;
 using Firebase.Firestore;
 using Firebase.Extensions;
 using System.Collections.Generic;
+using UnityEngine.SceneManagement;
 
 public class UsernameLogin : MonoBehaviour
 {
@@ -11,10 +12,13 @@ public class UsernameLogin : MonoBehaviour
     public TMP_InputField usernameInput;
     public TMP_Text feedbackText;
 
-    FirebaseFirestore db;
+    private FirebaseFirestore db;
+    private bool isProcessing = false;
 
     async void Start()
     {
+        feedbackText.text = "Inicializando...";
+
         var dep = await FirebaseApp.CheckAndFixDependenciesAsync();
 
         if (dep != DependencyStatus.Available)
@@ -24,10 +28,18 @@ public class UsernameLogin : MonoBehaviour
         }
 
         db = FirebaseFirestore.DefaultInstance;
+        feedbackText.text = "Listo. Introduce tu nombre de usuario.";
     }
 
     public void OnConfirmUsername()
     {
+        // Evitar múltiples clics mientras se procesa
+        if (isProcessing)
+        {
+            feedbackText.text = "Procesando, espera...";
+            return;
+        }
+
         string username = usernameInput.text.Trim().ToLower();
 
         if (string.IsNullOrEmpty(username))
@@ -35,6 +47,16 @@ public class UsernameLogin : MonoBehaviour
             feedbackText.text = "Introduce un nombre válido.";
             return;
         }
+
+        if (username.Length < 3)
+        {
+            feedbackText.text = "El nombre debe tener al menos 3 caracteres.";
+            return;
+        }
+
+        // Marcar como procesando y cambiar texto
+        isProcessing = true;
+        feedbackText.text = "Cargando...";
 
         CheckIfUsernameExists(username);
     }
@@ -48,45 +70,117 @@ public class UsernameLogin : MonoBehaviour
             if (task.IsFaulted)
             {
                 feedbackText.text = "Error conectando con Firestore.";
+                isProcessing = false;
+                return;
+            }
+
+            if (task.IsCanceled)
+            {
+                feedbackText.text = "Operación cancelada. Intenta nuevamente.";
+                isProcessing = false;
                 return;
             }
 
             if (!task.Result.Exists)
             {
                 CreateNewUser(username);
-                return;
             }
-
-            LoadExistingUser(username);
+            else
+            {
+                LoadExistingUser(username);
+            }
         });
     }
 
     void CreateNewUser(string username)
     {
-        GlobalUser.Instance.SetUser(username, 0);
-
-        if (GameDataManager.Instance != null)
+        try
         {
-            GameDataManager.Instance.CreateDefaultUserData();
+            feedbackText.text = "Creando usuario...";
+
+            GlobalUser.Instance.SetUser(username, 0);
+
+            if (GameDataManager.Instance != null)
+            {
+                GameDataManager.Instance.CreateDefaultUserData();
+            }
+
+            feedbackText.text = $"¡Usuario {username} creado!";
+            Debug.Log($"✅ Nuevo usuario creado: {username}");
+
+            // Cargar menú principal después de un breve delay
+            Invoke("LoadMainMenu", 1.5f);
         }
-
-        feedbackText.text = $"¡Usuario creado: {username}!";
-
-        // TODO: Load your main menu or game scene
+        catch (System.Exception ex)
+        {
+            feedbackText.text = "❌ Error creando usuario.";
+            isProcessing = false;
+            Debug.LogError($"Error creando usuario: {ex.Message}");
+        }
     }
 
     void LoadExistingUser(string username)
     {
-        GlobalUser.Instance.SetUser(username, 0);
-
-        if (GameDataManager.Instance != null)
+        try
         {
-            GameDataManager.Instance.LoadUserDataFromFirebase();
+            feedbackText.text = "Cargando datos...";
+
+            GlobalUser.Instance.SetUser(username, 0);
+
+            if (GameDataManager.Instance != null)
+            {
+                GameDataManager.Instance.LoadUserDataFromFirebase();
+            }
+
+            feedbackText.text = $"¡Bienvenido de vuelta, {username}!";
+            Debug.Log($"Usuario cargado: {username}");
+
+            // Cargar menú principal después de un breve delay
+            Invoke("LoadMainMenu", 1.5f);
         }
+        catch (System.Exception ex)
+        {
+            feedbackText.text = "❌ Error cargando usuario.";
+            isProcessing = false;
+            Debug.LogError($"Error cargando usuario: {ex.Message}");
+        }
+    }
 
-        feedbackText.text = $"Bienvenido de vuelta, {username}!";
+    void LoadMainMenu()
+    {
+        try
+        {
+            feedbackText.text = "Cargando menú principal...";
+            SceneManager.LoadScene("MainMenu");
+        }
+        catch (System.Exception ex)
+        {
+            feedbackText.text = "❌ Error cargando menú.";
+            isProcessing = false;
+            Debug.LogError($"Error cargando menú principal: {ex.Message}");
+        }
+    }
 
-        // TODO: Load your main menu or game scene
+    // Método para reiniciar el estado si hay problemas
+    public void ResetLoginState()
+    {
+        isProcessing = false;
+        feedbackText.text = "Estado reiniciado. Introduce tu nombre de usuario.";
+    }
 
+    // Permitir usar Enter para confirmar
+    void Update()
+    {
+        if (usernameInput != null && usernameInput.isFocused && Input.GetKeyDown(KeyCode.Return))
+        {
+            OnConfirmUsername();
+        }
+    }
+
+    // Limpiar cuando se desactive el objeto
+    void OnDisable()
+    {
+        isProcessing = false;
+        CancelInvoke();
     }
 }

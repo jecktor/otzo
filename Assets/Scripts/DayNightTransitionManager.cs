@@ -9,10 +9,11 @@ public class DayNightTransitionManager : MonoBehaviour
     [Header("Configuración Transición")]
     public float fadeInDuration = 2f;
     public float fadeOutDuration = 2f;
-    public float imageDisplayDuration = 25f;
+    public float imageDisplayDuration = 3f;
 
     private bool hasShownRoomToStore = false;
     private bool hasShownStoreToHome = false;
+    private bool hasShownIntro = false;
 
     public bool IsTransitioning { get; private set; } = false;
     private float fadeAlpha = 0f;
@@ -26,6 +27,8 @@ public class DayNightTransitionManager : MonoBehaviour
     private float dailyEarnings = 0f;
     private float originalAudioVolume;
     private bool forceBlackScreen = false;
+    private string targetSceneName = "";
+    private bool isIntroTransition = false;
 
     void Awake()
     {
@@ -50,8 +53,10 @@ public class DayNightTransitionManager : MonoBehaviour
 
     void LoadImagesFromResources()
     {
+        // Precargar las imágenes para evitar delays
         Texture2D loadedImage1 = Resources.Load<Texture2D>("Images/1");
         Texture2D loadedImage2 = Resources.Load<Texture2D>("Images/2");
+        Texture2D loadedIntro = Resources.Load<Texture2D>("Images/intro");
     }
 
     void CreateBlackTexture()
@@ -83,12 +88,42 @@ public class DayNightTransitionManager : MonoBehaviour
         EndTransition();
     }
 
+    public void StartTransitionWithIntroImage(string sceneToLoad)
+    {
+        if (IsTransitioning) return;
+
+        IsTransitioning = true;
+        isTransitioningToStore = false;
+        isIntroTransition = true;
+        targetSceneName = sceneToLoad;
+        fadeAlpha = 0f;
+        imageAlpha = 0f;
+        transitionTimer = 0f;
+        imageShown = false;
+        sceneChanged = false;
+        forceBlackScreen = false;
+
+        currentImage = Resources.Load<Texture2D>("Images/intro");
+        if (currentImage == null)
+        {
+            SceneManager.LoadScene(sceneToLoad);
+            return;
+        }
+
+        PauseGameAndAudio();
+        DisableGameUI();
+        DisablePauseFunctionality();
+
+        StartCoroutine(ForceFirstUpdate());
+    }
+
     public void StartTransitionToStore(float sleepQuality)
     {
         if (IsTransitioning) return;
 
         IsTransitioning = true;
         isTransitioningToStore = true;
+        isIntroTransition = false;
         fadeAlpha = 0f;
         imageAlpha = 0f;
         transitionTimer = 0f;
@@ -114,6 +149,7 @@ public class DayNightTransitionManager : MonoBehaviour
 
         IsTransitioning = true;
         isTransitioningToStore = false;
+        isIntroTransition = false;
         dailyEarnings = earnings;
         fadeAlpha = 0f;
         imageAlpha = 0f;
@@ -211,7 +247,6 @@ public class DayNightTransitionManager : MonoBehaviour
             fadeAlpha = 1f - SmoothStep(t);
             imageAlpha = 1f - SmoothStep(t);
 
-            // CAMBIO CLAVE: Cambiar escena MUCHO más temprano durante el fade out
             if (!sceneChanged && transitionTimer >= fadeInDuration + imageDisplayDuration + (fadeOutDuration * 0.2f))
             {
                 ChangeScene();
@@ -262,25 +297,12 @@ public class DayNightTransitionManager : MonoBehaviour
         sceneChanged = true;
         forceBlackScreen = true;
 
-        string targetScene = isTransitioningToStore ? "SampleScene" : "room";
+        string targetScene = isIntroTransition ? targetSceneName : (isTransitioningToStore ? "SampleScene" : "room");
 
-        // Forzar pantalla completamente negra antes de cambiar
         fadeAlpha = 1f;
         imageAlpha = 0f;
 
-        // Cargar la escena inmediatamente
         SceneManager.LoadScene(targetScene);
-    }
-
-    bool IsSceneInBuildSettings(string sceneName)
-    {
-        for (int i = 0; i < SceneManager.sceneCountInBuildSettings; i++)
-        {
-            string scenePath = SceneUtility.GetScenePathByBuildIndex(i);
-            string buildSceneName = System.IO.Path.GetFileNameWithoutExtension(scenePath);
-            if (buildSceneName == sceneName) return true;
-        }
-        return false;
     }
 
     void EndTransition()
@@ -291,6 +313,8 @@ public class DayNightTransitionManager : MonoBehaviour
         imageShown = false;
         sceneChanged = false;
         forceBlackScreen = false;
+        isIntroTransition = false;
+        targetSceneName = "";
 
         if (!isTransitioningToStore)
         {
@@ -404,6 +428,7 @@ public class DayNightTransitionManager : MonoBehaviour
     {
         hasShownRoomToStore = false;
         hasShownStoreToHome = false;
+        hasShownIntro = false;
     }
 
     void OnDestroy()

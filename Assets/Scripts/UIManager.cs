@@ -17,8 +17,7 @@ public class UIManager : MonoBehaviour
     public GameState CurrentState { get; private set; } = GameState.Playing;
 
     private GameObject pauseMenuCanvas;
-    private GameObject eventSystem;
-	private string[] allowedScenes = { "SampleScene", "room", "endless" };
+    private string[] allowedScenes = { "SampleScene", "room", "endless" };
 
     void Awake()
     {
@@ -27,7 +26,6 @@ public class UIManager : MonoBehaviour
             Instance = this;
             DontDestroyOnLoad(gameObject);
 
-            CreateEventSystem();
             CreatePauseMenu();
             HideAllMenus();
 
@@ -41,6 +39,11 @@ public class UIManager : MonoBehaviour
 
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
+        Debug.Log($"🔄 UIManager - Escena cargada: {scene.name}");
+
+        // **CORRECCIÓN CRÍTICA: Limpiar EventSystems duplicados**
+        CleanupDuplicateEventSystems();
+
         // Solo resetear el estado si es una escena permitida
         if (IsSceneAllowed(scene.name))
         {
@@ -55,6 +58,51 @@ public class UIManager : MonoBehaviour
         }
     }
 
+    // **NUEVO: Método para limpiar EventSystems duplicados**
+    void CleanupDuplicateEventSystems()
+    {
+        EventSystem[] eventSystems = FindObjectsOfType<EventSystem>();
+        Debug.Log($"🔍 Encontrados {eventSystems.Length} EventSystems en escena {SceneManager.GetActiveScene().name}");
+
+        if (eventSystems.Length > 1)
+        {
+            // Mantener solo el primer EventSystem activo, destruir los demás
+            EventSystem firstEventSystem = eventSystems[0];
+
+            for (int i = 1; i < eventSystems.Length; i++)
+            {
+                Debug.Log($"🗑️ Destruyendo EventSystem duplicado: {eventSystems[i].gameObject.name}");
+                Destroy(eventSystems[i].gameObject);
+            }
+
+            // Asegurarse de que el EventSystem restante esté configurado correctamente
+            if (firstEventSystem != null)
+            {
+                firstEventSystem.gameObject.SetActive(true);
+                Debug.Log($"✅ EventSystem activo: {firstEventSystem.gameObject.name}");
+            }
+        }
+        else if (eventSystems.Length == 1)
+        {
+            Debug.Log($"✅ Solo hay un EventSystem: {eventSystems[0].gameObject.name}");
+        }
+        else
+        {
+            Debug.LogWarning("⚠️ No hay EventSystem en la escena");
+        }
+
+        // **LIMPIAR TAMBIÉN StandaloneInputModule duplicados**
+        StandaloneInputModule[] inputModules = FindObjectsOfType<StandaloneInputModule>();
+        if (inputModules.Length > 1)
+        {
+            for (int i = 1; i < inputModules.Length; i++)
+            {
+                Debug.Log($"🗑️ Destruyendo StandaloneInputModule duplicado: {inputModules[i].gameObject.name}");
+                Destroy(inputModules[i].gameObject);
+            }
+        }
+    }
+
     bool IsSceneAllowed(string sceneName)
     {
         foreach (string allowedScene in allowedScenes)
@@ -63,23 +111,6 @@ public class UIManager : MonoBehaviour
                 return true;
         }
         return false;
-    }
-
-    void CreateEventSystem()
-    {
-        EventSystem existingEventSystem = FindObjectOfType<EventSystem>();
-        if (existingEventSystem == null)
-        {
-            eventSystem = new GameObject("EventSystem");
-            eventSystem.AddComponent<EventSystem>();
-            eventSystem.AddComponent<StandaloneInputModule>();
-            DontDestroyOnLoad(eventSystem);
-        }
-        else
-        {
-            eventSystem = existingEventSystem.gameObject;
-            DontDestroyOnLoad(eventSystem);
-        }
     }
 
     void CreatePauseMenu()
@@ -285,11 +316,18 @@ public class UIManager : MonoBehaviour
     {
         Debug.Log("🏠 Volviendo al menú principal");
 
+        // **CORRECCIÓN: Limpiar antes de cambiar de escena**
+        CleanupDuplicateEventSystems();
+
         // Cerrar el menú de pausa inmediatamente
         HideAllMenus();
 
         CurrentState = GameState.Playing;
         Time.timeScale = 1f;
+
+        // **IMPORTANTE: Configurar cursor para menú principal**
+        Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
 
         // Cargar el menú principal
         SceneManager.LoadScene("MainMenu");
@@ -320,8 +358,6 @@ public class UIManager : MonoBehaviour
         if (Instance == this)
         {
             SceneManager.sceneLoaded -= OnSceneLoaded;
-            if (eventSystem != null)
-                Destroy(eventSystem);
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
+using System.Linq;
 
 public class ShopManager : MonoBehaviour
 {
@@ -28,11 +29,6 @@ public class ShopManager : MonoBehaviour
         {
             purchasedUpgrades.Add(upgradeName);
             SavePurchasedUpgrades();
-            Debug.Log($"✅ Mejora '{upgradeName}' comprada y guardada");
-        }
-        else
-        {
-            Debug.LogWarning($"⚠️ La mejora '{upgradeName}' ya estaba comprada");
         }
     }
 
@@ -60,7 +56,6 @@ public class ShopManager : MonoBehaviour
                 }
             }
         }
-        Debug.Log($"📦 Mejoras cargadas: {purchasedUpgrades.Count}");
     }
 
     private void SavePurchasedUpgrades()
@@ -71,21 +66,9 @@ public class ShopManager : MonoBehaviour
         PlayerPrefs.Save();
     }
 
-    void Update()
+    public string GetPurchasedUpgradesString()
     {
-        if (Input.GetKeyDown(KeyCode.P))
-        {
-            Debug.Log("🎯 Mejoras compradas:");
-            foreach (string upgrade in purchasedUpgrades)
-            {
-                Debug.Log($" - {upgrade}");
-            }
-        }
-
-        if (Input.GetKeyDown(KeyCode.O))
-        {
-            ResetPurchases();
-        }
+        return string.Join(";", purchasedUpgrades.ToArray());
     }
 
     public void ResetPurchases()
@@ -93,6 +76,5 @@ public class ShopManager : MonoBehaviour
         purchasedUpgrades.Clear();
         PlayerPrefs.DeleteKey(PURCHASED_UPGRADES_KEY);
         PlayerPrefs.Save();
-        Debug.Log("🔄 Todas las compras reseteadas");
     }
 }

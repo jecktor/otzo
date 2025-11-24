@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using UnityEngine.SceneManagement;
+using System.Threading.Tasks;
 
 public class GameManager : MonoBehaviour
 {
@@ -12,14 +13,23 @@ public class GameManager : MonoBehaviour
         Paused
     }
 
-    public GameState CurrentState { get; private set; } = GameState.Playing;
+    public GameState CurrentState { get; private set; } = GameState.MainMenu;
+
+    private GameDataManager dataManager;
+    private DayNightTransitionManager transitionManager;
 
     void Awake()
     {
         if (Instance == null)
         {
             Instance = this;
-            DontDestroyOnLoad(gameObject);
+            // **IMPORTANTE: NO usar DontDestroyOnLoad para GameManager**
+            // DontDestroyOnLoad(gameObject);
+
+            InitializeDataManager();
+            InitializeTransitionManager();
+
+            Debug.Log("✅ GameManager inicializado");
         }
         else
         {
@@ -27,32 +37,271 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    public void StartGame()
+    void Start()
     {
-        Debug.Log("🎮 StartGame() - Cargando SampleScene");
+        // Configurar la escena actual
+        SetupCurrentScene();
+    }
+
+    void SetupCurrentScene()
+    {
+        string currentScene = SceneManager.GetActiveScene().name;
+        Debug.Log($"🔄 Configurando escena: {currentScene}");
+
+        if (currentScene == "MainMenu")
+        {
+            SetupMainMenu();
+        }
+        else if (currentScene == "room" || currentScene == "SampleScene" || currentScene == "endless")
+        {
+            SetupGameScene();
+        }
+    }
+
+    void SetupMainMenu()
+    {
+        CurrentState = GameState.MainMenu;
+        Time.timeScale = 1f;
+
+        // **CONFIGURACIÓN CRÍTICA PARA MENÚ PRINCIPAL**
+        Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
+
+        Debug.Log("🏠 Menú principal configurado - Cursor visible");
+    }
+
+    void SetupGameScene()
+    {
         CurrentState = GameState.Playing;
         Time.timeScale = 1f;
 
-        // OCULTAR CURSOR al empezar el juego
+        // **CONFIGURACIÓN PARA JUEGO**
+        Cursor.visible = false;
+        Cursor.lockState = CursorLockMode.Locked;
+
+        Debug.Log("🎮 Escena de juego configurada - Cursor oculto");
+    }
+
+    void InitializeDataManager()
+    {
+        dataManager = FindObjectOfType<GameDataManager>();
+        if (dataManager == null)
+        {
+            GameObject dataManagerObj = new GameObject("GameDataManager");
+            dataManager = dataManagerObj.AddComponent<GameDataManager>();
+            // **IMPORTANTE: GameDataManager SÍ usa DontDestroyOnLoad**
+            DontDestroyOnLoad(dataManagerObj);
+        }
+    }
+
+    void InitializeTransitionManager()
+    {
+        transitionManager = FindObjectOfType<DayNightTransitionManager>();
+        if (transitionManager == null)
+        {
+            GameObject transitionObj = new GameObject("DayNightTransitionManager");
+            transitionManager = transitionObj.AddComponent<DayNightTransitionManager>();
+            DontDestroyOnLoad(transitionObj);
+            Debug.Log("✅ DayNightTransitionManager creado automáticamente");
+        }
+    }
+
+    // Función para verificar si hay usuario logeado
+    private bool IsUserLoggedIn()
+    {
+        if (GlobalUser.Instance == null || string.IsNullOrEmpty(GlobalUser.Instance.Username))
+        {
+            Debug.LogWarning("⚠️ No hay usuario logeado. Inicia sesión primero.");
+            return false;
+        }
+        return true;
+    }
+
+    public async void StartGame()
+    {
+        // Verificar si hay usuario logeado
+        if (!IsUserLoggedIn())
+        {
+            Debug.LogError("❌ No se puede iniciar juego: No hay usuario logeado");
+            return;
+        }
+
+        Debug.Log("🎮 StartGame() - Iniciando nuevo juego");
+        CurrentState = GameState.Playing;
+        Time.timeScale = 1f;
+
         Cursor.visible = false;
         Cursor.lockState = CursorLockMode.Locked;
         Debug.Log("🎯 Cursor ocultado para modo juego");
 
-        SceneManager.LoadScene("SampleScene");
+        await ResetGameData();
+
+        // Asegurarse de que el transitionManager esté disponible
+        if (transitionManager == null)
+        {
+            InitializeTransitionManager();
+        }
+
+        if (transitionManager != null && !transitionManager.IsTransitioning)
+        {
+            Debug.Log("🎬 Iniciando transición con imagen de intro");
+            transitionManager.StartTransitionWithIntroImage("room");
+        }
+        else
+        {
+            Debug.LogWarning("⚠️ TransitionManager no disponible, cargando escena directamente");
+            SceneManager.LoadScene("room");
+        }
     }
-    
-	public void StartArcade()
-	{
-		CurrentState = GameState.Playing;
-		Time.timeScale = 1f;
 
-		// OCULTAR CURSOR al empezar el juego
-		Cursor.visible = false;
-		Cursor.lockState = CursorLockMode.Locked;
-		Debug.Log("🎯 Cursor ocultado para modo juego");
+    private void ResetLocalData()
+    {
+        Debug.Log("🗑️ Reseteando datos locales...");
 
-		SceneManager.LoadScene("endless");
-	}
+        PlayerPrefs.DeleteKey("PlayerMoney");
+        PlayerPrefs.DeleteKey("SleepQuality");
+        PlayerPrefs.SetInt("CurrentDay", 1); // **FIJO en 1**
+        PlayerPrefs.DeleteKey("PurchasedUpgrades");
+        PlayerPrefs.DeleteKey("BestScore");
+        PlayerPrefs.Save();
+
+        // **FORZAR que sea día 1 inmediatamente**
+        if (FindObjectOfType<GameClock>() != null)
+        {
+            FindObjectOfType<GameClock>().SetExactTime(21, 0);
+        }
+
+        Debug.Log("✅ Datos locales reseteados - Día forzado a 1");
+    }
+    private async Task ResetGameData()
+    {
+        if (!IsUserLoggedIn())
+        {
+            Debug.LogError("❌ No se puede resetear datos: No hay usuario logeado");
+            return;
+        }
+
+        Debug.Log("🔄 Reseteando datos del juego...");
+
+        try
+        {
+            ResetLocalData();
+            await ResetFirebaseData();
+            Debug.Log("✅ Datos reseteados exitosamente");
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"❌ Error reseteando datos: {ex.Message}");
+        }
+    }
+
+    public async void StartArcade()
+    {
+        // Verificar si hay usuario logeado
+        if (!IsUserLoggedIn())
+        {
+            Debug.LogError("❌ No se puede iniciar arcade: No hay usuario logeado");
+            return;
+        }
+
+        Debug.Log("🎮 StartArcade() - Iniciando modo arcade");
+        CurrentState = GameState.Playing;
+        Time.timeScale = 1f;
+
+        Cursor.visible = false;
+        Cursor.lockState = CursorLockMode.Locked;
+        Debug.Log("🎯 Cursor ocultado para modo juego");
+
+        await ResetGameData();
+
+        SceneManager.LoadScene("endless");
+    }
+
+    public async void LoadRoomWithFirebaseData()
+    {
+        // Verificar si hay usuario logeado
+        if (!IsUserLoggedIn())
+        {
+            Debug.LogError("❌ No se puede cargar room: No hay usuario logeado");
+            return;
+        }
+
+        Debug.Log("🏠 LoadRoomWithFirebaseData() - Cargando room con datos de Firebase");
+
+        try
+        {
+            await LoadDataFromFirebase();
+
+            CurrentState = GameState.Playing;
+            Time.timeScale = 1f;
+
+            Cursor.visible = false;
+            Cursor.lockState = CursorLockMode.Locked;
+
+            SceneManager.LoadScene("room");
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"❌ Error cargando datos de Firebase: {ex.Message}");
+            SceneManager.LoadScene("room");
+        }
+    }
+
+    private async Task LoadDataFromFirebase()
+    {
+        Debug.Log("📥 Cargando datos desde Firebase...");
+
+        if (dataManager != null)
+        {
+            dataManager.LoadUserDataFromFirebase();
+            await Task.Delay(1000);
+        }
+        else
+        {
+            Debug.LogWarning("⚠️ GameDataManager no disponible");
+        }
+    }
+
+    private async Task ResetFirebaseData()
+    {
+        Debug.Log("☁️ Reseteando datos en Firebase...");
+
+        if (dataManager != null)
+        {
+            float defaultMoney = 2500f;
+            float defaultSleep = 100f;
+            int defaultDay = 1;
+            string defaultUpgrades = "";
+
+            PlayerPrefs.SetFloat("PlayerMoney", defaultMoney);
+            PlayerPrefs.SetFloat("SleepQuality", defaultSleep);
+            PlayerPrefs.SetInt("CurrentDay", defaultDay);
+            PlayerPrefs.SetString("PurchasedUpgrades", defaultUpgrades);
+            PlayerPrefs.SetInt("HasReadFirstDayEmail", 0);
+            PlayerPrefs.Save();
+
+            dataManager.SaveUserDataToFirebase();
+
+            await Task.Delay(500);
+        }
+    }
+
+    private void ResetPersistentManagers()
+    {
+        var persistentManagers = FindObjectsOfType<MonoBehaviour>();
+        foreach (var manager in persistentManagers)
+        {
+            if (manager.gameObject.scene.buildIndex == -1) // Es DontDestroyOnLoad
+            {
+                var resetMethod = manager.GetType().GetMethod("ResetData");
+                if (resetMethod != null)
+                {
+                    resetMethod.Invoke(manager, null);
+                    Debug.Log($"✅ Reseteados datos en: {manager.GetType().Name}");
+                }
+            }
+        }
+    }
 
     public void TogglePause()
     {
@@ -87,18 +336,95 @@ public class GameManager : MonoBehaviour
     public void QuitToMainMenu()
     {
         Debug.Log("🏠 Volviendo al menú principal");
+
         CurrentState = GameState.MainMenu;
         Time.timeScale = 1f;
+
+        // **IMPORTANTE: Destruir UIManager antes de cambiar de escena**
+        if (UIManager.Instance != null)
+        {
+            Destroy(UIManager.Instance.gameObject);
+        }
+
+        // MOSTRAR CURSOR en el menú principal
+        Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
+
         SceneManager.LoadScene("MainMenu");
     }
 
     public void QuitGame()
     {
         Debug.Log("👋 Saliendo del juego");
+
+        // Guardar datos antes de salir (solo si hay usuario logeado)
+        if (dataManager != null && IsUserLoggedIn())
+        {
+            dataManager.SaveUserDataToFirebase();
+        }
+
 #if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false;
 #else
         Application.Quit();
 #endif
+    }
+
+    [ContextMenu("Forzar Reset Completo")]
+    public async void ForceCompleteReset()
+    {
+        // Verificar si hay usuario logeado
+        if (!IsUserLoggedIn())
+        {
+            Debug.LogError("❌ No se puede forzar reset: No hay usuario logeado");
+            return;
+        }
+
+        await ResetGameData();
+        Debug.Log("🔄 Reset completo forzado ejecutado");
+    }
+
+    [ContextMenu("Verificar Estado de Datos")]
+    public void CheckDataStatus()
+    {
+        // Verificar si hay usuario logeado
+        if (!IsUserLoggedIn())
+        {
+            Debug.LogError("❌ No se puede verificar datos: No hay usuario logeado");
+            return;
+        }
+
+        Debug.Log("=== ESTADO ACTUAL DE DATOS ===");
+        Debug.Log($"💰 Dinero: ${PlayerPrefs.GetFloat("PlayerMoney", 2500f):F2}");
+        Debug.Log($"😴 Sueño: {PlayerPrefs.GetFloat("SleepQuality", 100f):F1}%");
+        Debug.Log($"📅 Día: {PlayerPrefs.GetInt("CurrentDay", 1)}");
+        Debug.Log($"🛍️ Mejoras: {PlayerPrefs.GetString("PurchasedUpgrades", "Ninguna")}");
+
+        if (dataManager != null)
+        {
+            dataManager.ShowCurrentData();
+        }
+    }
+
+    // Método público para verificar estado de login
+    public void CheckLoginStatus()
+    {
+        if (IsUserLoggedIn())
+        {
+            Debug.Log($"✅ Usuario logeado: {GlobalUser.Instance.Username}");
+        }
+        else
+        {
+            Debug.Log("❌ No hay usuario logeado");
+        }
+    }
+
+    [ContextMenu("Corregir Día a 1")]
+    public void ForceFixDayToOne()
+    {
+        if (dataManager != null)
+        {
+            dataManager.ForceFixDayToOne();
+        }
     }
 }

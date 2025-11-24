@@ -30,7 +30,6 @@ public class BedTriggerSleep : MonoBehaviour
         {
             GameObject gameDataManagerObj = new GameObject("GameDataManager");
             gameDataManagerObj.AddComponent<GameDataManager>();
-            Debug.Log("📊 GameDataManager creado automáticamente");
         }
     }
 
@@ -73,6 +72,7 @@ public class BedTriggerSleep : MonoBehaviour
             if (gameClock != null && sleepSystem != null)
             {
                 systemsInitialized = true;
+                Debug.Log("✅ Sistemas de cama inicializados correctamente");
             }
         }
     }
@@ -87,7 +87,7 @@ public class BedTriggerSleep : MonoBehaviour
     {
         if (!EmailManager.Instance.HasReadFirstDayEmail)
         {
-            Debug.Log("❌ No puedes dormir aún. Revisa tu correo primero en la computadora.");
+            Debug.Log("📧 Debes leer el correo primero antes de dormir");
             return;
         }
 
@@ -96,43 +96,30 @@ public class BedTriggerSleep : MonoBehaviour
             TryInitializeSystems();
             if (!systemsInitialized)
             {
-                Debug.LogError("❌ No se pudieron inicializar los sistemas para dormir");
+                Debug.LogError("❌ Sistemas no inicializados");
                 return;
             }
         }
 
         if (gameClock != null && sleepSystem != null)
         {
+            int dayBeforeSleep = gameClock.CurrentDay;
+
+            // **CORRECCIÓN: Solo marcar primer día como completado si realmente es el primer día**
+            if (gameClock.IsFirstDay())
+            {
+                gameClock.CompleteFirstDay();
+                Debug.Log("🎯 Marcando primer día como completado");
+            }
+
+            float sleepBefore = sleepSystem.CurrentSleepQuality;
             sleepSystem.Sleep();
+            float sleepAfter = sleepSystem.CurrentSleepQuality;
+
             gameClock.SleepAndAdvanceTime();
 
-            if (GameDataManager.Instance != null)
-            {
-                GameDataManager.Instance.SaveGameData();
-            }
-            else
-            {
-                SaveAllGameDataFallback();
-            }
+            Debug.Log($"🛌 Dormido - Día: {dayBeforeSleep} → {gameClock.CurrentDay}, Sueño: {sleepBefore:F1}% → {sleepAfter:F1}%");
         }
-    }
-
-    void SaveAllGameDataFallback()
-    {
-        PlayerPrefs.SetFloat("PlayerMoney", PlayerWallet.totalMoney);
-
-        if (sleepSystem != null)
-        {
-            PlayerPrefs.SetFloat("SleepQuality", sleepSystem.CurrentSleepQuality);
-        }
-
-        if (gameClock != null)
-        {
-            PlayerPrefs.SetInt("CurrentDay", gameClock.CurrentDay);
-        }
-
-        PlayerPrefs.Save();
-        Debug.Log("💾 Datos guardados (fallback): Dinero, Sueño, Día");
     }
 
     void CreateGUIStyle()
