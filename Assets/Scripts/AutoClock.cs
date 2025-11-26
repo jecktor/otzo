@@ -67,19 +67,24 @@ public class GameClock : MonoBehaviour
 
     void Start()
     {
+        // **NUEVO: Verificar si estamos continuando una partida existente**
+        bool isContinuingGame = PlayerPrefs.GetInt("HasCompletedFirstCycle", 0) == 1;
+
         if (currentDay == 0)
         {
             currentDay = PlayerPrefs.GetInt("CurrentDay", startDay);
         }
 
-        Debug.Log($"🔍 DEBUG GameClock Start - Escena: {SceneManager.GetActiveScene().name}");
-        Debug.Log($"🔍 PlayerPrefs CurrentDay: {PlayerPrefs.GetInt("CurrentDay", -1)}");
-        Debug.Log($"🔍 currentDay variable: {currentDay}");
-        Debug.Log($"🔍 startDay: {startDay}");
+        // **CORRECCIÓN: isFirstDay debe ser false si estamos continuando**
+        isFirstDay = currentDay == 1 && !isContinuingGame;
 
-        isFirstDay = currentDay == 1;
+        Debug.Log($"🕒 GameClock iniciado - Día: {currentDay}, Primer día: {isFirstDay}, Continuando: {isContinuingGame}");
 
-        Debug.Log($"🕒 GameClock iniciado - Día: {currentDay}, Primer día: {isFirstDay}");
+        // **NUEVO: Solo resetear flags si estamos continuando (no en nueva sesión)**
+        if (DayNightTransitionManager.Instance != null && isContinuingGame)
+        {
+            DayNightTransitionManager.Instance.ResetTransitionFlagsBasedOnGameState(false);
+        }
 
         if (isFirstDay && SceneManager.GetActiveScene().name == "room")
         {
@@ -94,16 +99,13 @@ public class GameClock : MonoBehaviour
         else
         {
             SetExactTime(8, 0);
-            Debug.Log("⏰ Día posterior - Hora fijada a 8:00 AM");
+            Debug.Log("⏰ Día posterior o continuando partida - Hora fijada a 8:00 AM");
         }
 
-        // ⚠️ CRÍTICO: Crear estilos UNA SOLA VEZ al inicio
         InitializeGUIStyles();
-
         EnsureTransitionManagerExists();
         SceneManager.sceneLoaded += OnSceneLoaded;
     }
-
     void EnsureTransitionManagerExists()
     {
         if (DayNightTransitionManager.Instance == null)
@@ -340,7 +342,6 @@ public class GameClock : MonoBehaviour
         if (sleepQuality >= 30f) return new Color(1f, 0.5f, 0f);
         return Color.red;
     }
-
     public void SleepAndAdvanceTime()
     {
         float sleepQuality = 50f;
@@ -354,7 +355,9 @@ public class GameClock : MonoBehaviour
         if (isFirstDay)
         {
             isFirstDay = false;
-            Debug.Log($"📅 Primer ciclo completado - Manteniendo día 1");
+            PlayerPrefs.SetInt("HasCompletedFirstCycle", 1);
+            PlayerPrefs.Save();
+            Debug.Log($"📅 Primer ciclo completado - Marcando HasCompletedFirstCycle = 1");
         }
         else
         {
@@ -364,15 +367,22 @@ public class GameClock : MonoBehaviour
 
         SetExactTime(8, 0);
 
-        //PlayerPrefs.SetInt("CurrentDay", currentDay);
-        //PlayerPrefs.Save();
-
         Debug.Log($"✅ Dormido - Día anterior: {dayBeforeSleep}, Día actual: {currentDay}, Primer día: {isFirstDay}");
 
-        if (dayBeforeSleep == 1 && DayNightTransitionManager.Instance != null)
+        // **CORRECCIÓN: Verificar si debemos mostrar la transición**
+        if (dayBeforeSleep == 1)
         {
-            DayNightTransitionManager.Instance.StartTransitionToStore(sleepQuality);
-            Debug.Log("🎬 Transición con imagen para primer día");
+            if (DayNightTransitionManager.Instance != null &&
+                !DayNightTransitionManager.Instance.HasShownRoomToStore)
+            {
+                DayNightTransitionManager.Instance.StartTransitionToStore(sleepQuality);
+                Debug.Log("🎬 Transición con imagen para primer día");
+            }
+            else
+            {
+                ChangeToDayScene();
+                Debug.Log("🔄 Cambio directo - Transición ya mostrada anteriormente");
+            }
         }
         else
         {
@@ -387,9 +397,12 @@ public class GameClock : MonoBehaviour
 
         float dailyEarnings = CalculateDailyEarnings();
 
-        if (DayNightTransitionManager.Instance != null)
+        // **CORRECCIÓN: Verificar si debemos mostrar la transición**
+        if (DayNightTransitionManager.Instance != null &&
+            !DayNightTransitionManager.Instance.HasShownStoreToHome)
         {
             DayNightTransitionManager.Instance.StartTransitionToHome(dailyEarnings);
+            Debug.Log("🎬 Transición con imagen para noche");
         }
         else
         {
@@ -399,15 +412,19 @@ public class GameClock : MonoBehaviour
                 isNightScene = true;
                 clockTimeMultiplier = nightClockSlowdown;
                 UnityEngine.SceneManagement.SceneManager.LoadScene(nightScene);
+                Debug.Log("🔄 Cambio directo a room - Transición ya mostrada");
             }
         }
     }
+
 
     private void SaveDataAtDayEnd()
     {
         if (GameDataManager.Instance != null)
         {
             Debug.Log("🏠 Cargando escena room - Guardando datos en Firebase");
+            PlayerPrefs.SetInt("CurrentDay", currentDay);
+
             GameDataManager.Instance.SaveUserDataToFirebase();
         }
         else
@@ -555,6 +572,26 @@ public class GameClock : MonoBehaviour
     public void UnsubscribeFromFivePM(Action callback)
     {
         OnFivePMReached -= callback;
+    }
+
+    public void ForceResetToDayOne()
+    {
+        currentDay = 1;
+        isFirstDay = true;
+        gameTime = 0f;
+        fivePMTriggered = false;
+
+        // Resetear a hora inicial
+        if (SceneManager.GetActiveScene().name == "room")
+        {
+            SetExactTime(21, 0);
+        }
+        else
+        {
+            SetExactTime(8, 0);
+        }
+
+        Debug.Log("🔄 GameClock reseteado a día 1");
     }
 
     void OnDestroy()

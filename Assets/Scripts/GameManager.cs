@@ -1,6 +1,7 @@
-﻿using UnityEngine;
-using UnityEngine.SceneManagement;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
+using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
@@ -127,6 +128,10 @@ public class GameManager : MonoBehaviour
         }
 
         Debug.Log("🎮 StartGame() - Iniciando nuevo juego");
+
+        // **LLAMAR AQUÍ: Resetear TODOS los managers**
+        ResetAllManagers();
+
         CurrentState = GameState.Playing;
         Time.timeScale = 1f;
 
@@ -135,6 +140,12 @@ public class GameManager : MonoBehaviour
         Debug.Log("🎯 Cursor ocultado para modo juego");
 
         await ResetGameData();
+
+        // **NUEVO: Resetear flags de transición para JUEGO NUEVO**
+        ResetTransitionFlags(true); // ← true indica juego nuevo
+
+        // **DEBUG: Verificar estado después del reset**
+        DebugTransitions();
 
         // Asegurarse de que el transitionManager esté disponible
         if (transitionManager == null)
@@ -153,6 +164,72 @@ public class GameManager : MonoBehaviour
             SceneManager.LoadScene("room");
         }
     }
+    [ContextMenu("Debug Transiciones")]
+    public void DebugTransitions()
+    {
+        if (DayNightTransitionManager.Instance != null)
+        {
+            Debug.Log("=== DEBUG TRANSICIONES ===");
+            Debug.Log($"🎬 RoomToStore: {DayNightTransitionManager.Instance.HasShownRoomToStore}");
+            Debug.Log($"🎬 StoreToHome: {DayNightTransitionManager.Instance.HasShownStoreToHome}");
+            Debug.Log($"🎬 Intro: {DayNightTransitionManager.Instance.HasShownIntro}");
+
+            int currentDay = PlayerPrefs.GetInt("CurrentDay", 1);
+            bool hasCompletedCycle = PlayerPrefs.GetInt("HasCompletedFirstCycle", 0) == 1;
+            Debug.Log($"📊 Datos - Día: {currentDay}, CicloCompletado: {hasCompletedCycle}");
+        }
+    }
+    private void ResetTransitionFlags(bool isNewGame = false)
+    {
+        if (DayNightTransitionManager.Instance != null)
+        {
+            DayNightTransitionManager.Instance.ResetTransitionFlagsBasedOnGameState(isNewGame);
+            Debug.Log($"✅ Flags de transición reseteadas - NuevoJuego: {isNewGame}");
+        }
+    }
+
+
+    private void ResetAllManagers()
+    {
+        ResetGameClock();
+        ResetEmailManager();
+        ResetShopManager();
+        Debug.Log("✅ Todos los managers reseteados");
+    }
+
+    private void ResetEmailManager()
+    {
+        Debug.Log("🔄 Reseteando EmailManager...");
+
+        // Buscar y destruir EmailManager existente
+        EmailManager[] existingManagers = FindObjectsOfType<EmailManager>();
+        foreach (EmailManager manager in existingManagers)
+        {
+            if (manager != null && manager.gameObject != null)
+            {
+                Destroy(manager.gameObject);
+            }
+        }
+
+        Debug.Log("✅ EmailManager reseteado");
+    }
+
+    private void ResetShopManager()
+    {
+        Debug.Log("🔄 Reseteando ShopManager...");
+
+        // Buscar y destruir ShopManager existente
+        ShopManager[] existingManagers = FindObjectsOfType<ShopManager>();
+        foreach (ShopManager manager in existingManagers)
+        {
+            if (manager != null && manager.gameObject != null)
+            {
+                Destroy(manager.gameObject);
+            }
+        }
+
+        Debug.Log("✅ ShopManager reseteado");
+    }
 
     private void ResetLocalData()
     {
@@ -161,14 +238,26 @@ public class GameManager : MonoBehaviour
         PlayerPrefs.DeleteKey("PlayerMoney");
         PlayerPrefs.DeleteKey("SleepQuality");
         PlayerPrefs.SetInt("CurrentDay", 1);
-        PlayerPrefs.SetInt("LastSavedDay", 1); // ⚠️ NUEVO: Resetear checkpoint
+        PlayerPrefs.SetInt("LastSavedDay", 1);
         PlayerPrefs.SetInt("HasCompletedFirstCycle", 0);
         PlayerPrefs.DeleteKey("PurchasedUpgrades");
         PlayerPrefs.DeleteKey("BestScore");
         PlayerPrefs.DeleteKey("HasReadFirstDayEmail");
         PlayerPrefs.Save();
 
-        Debug.Log("✅ Datos locales reseteados - Día 1, checkpoint en día 1");
+        Debug.Log("✅ Datos locales reseteados - Día 1, ciclo NO completado");
+    }
+
+    private void ResetGameClock()
+    {
+        if (GameClock.Instance != null)
+        {
+            GameClock.Instance.ForceResetToDayOne();
+        }
+        else
+        {
+            Debug.Log("ℹ️ No hay GameClock activo para resetear");
+        }
     }
     private async Task ResetGameData()
     {
@@ -229,6 +318,12 @@ public class GameManager : MonoBehaviour
         {
             await LoadDataFromFirebase();
 
+            // **NUEVO: Forzar estado correcto del GameClock después de cargar**
+            ForceCorrectGameClockState();
+
+            // **NUEVO: Resetear flags de transición para CONTINUAR partida**
+            ResetTransitionFlags(false); // ← false indica continuar partida
+
             CurrentState = GameState.Playing;
             Time.timeScale = 1f;
 
@@ -244,6 +339,35 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    // **NUEVO MÉTODO: Resetear flags de transición**
+
+
+    // **NUEVO MÉTODO: Corregir estado del GameClock**
+    // **MEJORADO: Corregir estado del GameClock**
+    private void ForceCorrectGameClockState()
+    {
+        if (GameClock.Instance != null)
+        {
+            int savedDay = PlayerPrefs.GetInt("CurrentDay", 1);
+            bool hasCompletedCycle = PlayerPrefs.GetInt("HasCompletedFirstCycle", 0) == 1;
+
+            Debug.Log($"🔧 Forzando estado GameClock - Día: {savedDay}, CicloCompletado: {hasCompletedCycle}");
+
+            // Si el día es 1 PERO ya completamos el ciclo, no es primer día
+            if (savedDay == 1 && hasCompletedCycle)
+            {
+                GameClock.Instance.CompleteFirstDay();
+                Debug.Log("🔄 GameClock forzado: Día 1 pero NO es primer día (ciclo completado)");
+            }
+
+            // **NUEVO: También resetear el día si es mayor a 1**
+            else if (savedDay > 1)
+            {
+                GameClock.Instance.CompleteFirstDay();
+                Debug.Log($"🔄 GameClock forzado: Día {savedDay} - No es primer día");
+            }
+        }
+    }
     private async Task LoadDataFromFirebase()
     {
         Debug.Log("📥 Cargando datos desde Firebase...");
@@ -424,4 +548,6 @@ public class GameManager : MonoBehaviour
             dataManager.ForceFixDayToOne();
         }
     }
+
+
 }

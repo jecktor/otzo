@@ -20,7 +20,7 @@ public class DayNightTransitionManager : MonoBehaviour
     private float imageAlpha = 0f;
     private float transitionTimer = 0f;
     private Texture2D blackTexture;
-    private Texture2D whiteTexture; // ⚠️ NUEVO: Cachear textura blanca
+    private Texture2D whiteTexture;
     private bool imageShown = false;
     private bool sceneChanged = false;
     private Texture2D currentImage;
@@ -30,7 +30,9 @@ public class DayNightTransitionManager : MonoBehaviour
     private bool forceBlackScreen = false;
     private string targetSceneName = "";
     private bool isIntroTransition = false;
-
+    public bool HasShownRoomToStore => hasShownRoomToStore;
+    public bool HasShownStoreToHome => hasShownStoreToHome;
+    public bool HasShownIntro => hasShownIntro;
     void Awake()
     {
         if (Instance == null)
@@ -49,13 +51,12 @@ public class DayNightTransitionManager : MonoBehaviour
     void InitializeTransitionManager()
     {
         CreateBlackTexture();
-        CreateWhiteTexture(); // ⚠️ NUEVO: Crear textura blanca una sola vez
+        CreateWhiteTexture(); 
         LoadImagesFromResources();
     }
 
     void LoadImagesFromResources()
     {
-        // Precargar las imágenes para evitar delays
         Texture2D loadedImage1 = Resources.Load<Texture2D>("Images/1");
         Texture2D loadedImage2 = Resources.Load<Texture2D>("Images/2");
         Texture2D loadedIntro = Resources.Load<Texture2D>("Images/intro");
@@ -75,7 +76,6 @@ public class DayNightTransitionManager : MonoBehaviour
         blackTexture.Apply();
     }
 
-    // ⚠️ NUEVO: Crear textura blanca una sola vez
     void CreateWhiteTexture()
     {
         whiteTexture = new Texture2D(1, 1);
@@ -151,9 +151,13 @@ public class DayNightTransitionManager : MonoBehaviour
         forceBlackScreen = false;
 
         bool shouldShowImage = !hasShownRoomToStore;
-        hasShownRoomToStore = true;
 
         PrepareStoreTransitionImage(shouldShowImage);
+
+        if (shouldShowImage && currentImage != null)
+        {
+            hasShownRoomToStore = true;
+        }
 
         PauseGameAndAudio();
         DisableGameUI();
@@ -178,9 +182,13 @@ public class DayNightTransitionManager : MonoBehaviour
         forceBlackScreen = false;
 
         bool shouldShowImage = !hasShownStoreToHome;
-        hasShownStoreToHome = true;
 
         PrepareHomeTransitionImage(shouldShowImage);
+
+        if (shouldShowImage && currentImage != null)
+        {
+            hasShownStoreToHome = true;
+        }
 
         PauseGameAndAudio();
         DisableGameUI();
@@ -463,10 +471,48 @@ public class DayNightTransitionManager : MonoBehaviour
         hasShownIntro = false;
         Debug.Log("🔄 Flags de transición reseteadas");
     }
+    public void ResetTransitionFlagsBasedOnGameState(bool isNewGame = false)
+    {
+        int currentDay = PlayerPrefs.GetInt("CurrentDay", 1);
+        bool hasCompletedCycle = PlayerPrefs.GetInt("HasCompletedFirstCycle", 0) == 1;
 
+        Debug.Log($"🎬 Verificando transiciones - Día: {currentDay}, CicloCompletado: {hasCompletedCycle}, NuevoJuego: {isNewGame}");
+
+        if (isNewGame)
+        {
+            // Juego NUEVO - resetear todo para mostrar cinemáticas
+            hasShownRoomToStore = false;
+            hasShownStoreToHome = false;
+            hasShownIntro = false;
+            Debug.Log("🎬 Transiciones ACTIVADAS - Juego nuevo");
+        }
+        else if (currentDay == 1 && hasCompletedCycle)
+        {
+            // Continuar día 1 después de dormir - NO mostrar cinemáticas
+            hasShownRoomToStore = true;
+            hasShownStoreToHome = true;
+            hasShownIntro = true;
+            Debug.Log("🎬 Transiciones DESACTIVADAS - Continuando día 1 (ciclo completado)");
+        }
+        else if (currentDay > 1)
+        {
+            // Días 2+ - NO mostrar cinemáticas
+            hasShownRoomToStore = true;
+            hasShownStoreToHome = true;
+            hasShownIntro = true;
+            Debug.Log("🎬 Transiciones DESACTIVADAS - Día 2+");
+        }
+        else
+        {
+            // Día 1 dentro de la misma sesión - MOSTRAR cinemáticas
+            // **IMPORTANTE: No cambiar las flags, mantenerlas como están**
+            Debug.Log("🎬 Transiciones MANTENIDAS - Día 1 en sesión actual");
+        }
+
+        Debug.Log($"🎬 Estado flags - RoomToStore: {hasShownRoomToStore}, StoreToHome: {hasShownStoreToHome}, Intro: {hasShownIntro}");
+    }
     void OnDestroy()
     {
-        // ⚠️ CRÍTICO: Limpiar texturas al destruir
         if (blackTexture != null)
         {
             Destroy(blackTexture);
