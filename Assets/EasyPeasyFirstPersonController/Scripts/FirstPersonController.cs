@@ -76,7 +76,7 @@
         public float CurrentCameraHeight => isCrouching || isSliding ? crouchCameraHeight : originalCameraParentHeight;
 
         private static FirstPersonController instance;
-        private string[] persistentScenes = { "SampleScene", "room" };
+	    private string[] persistentScenes = { "SampleScene", "room", "endless" };
 
         private Vector3 roomPosition = new Vector3(-2f, 1f, -2f);
         private Vector3 sampleScenePosition = new Vector3(9.7f, 1.3f, -13f);
@@ -146,7 +146,7 @@
                 {
                     StartCoroutine(SetPositionInRoomCoroutine());
                 }
-                else if (currentSceneName == "SampleScene")
+                else if (currentSceneName == "SampleScene" || currentSceneName == "endless")
                 {
                     StartCoroutine(SetPositionInSampleSceneCoroutine());
                 }
@@ -159,7 +159,7 @@
             {
                 StartCoroutine(SetPositionInRoomCoroutine());
             }
-            else if (scene.name == "SampleScene")
+            else if (scene.name == "SampleScene" || scene.name == "endless")
             {
                 StartCoroutine(SetPositionInSampleSceneCoroutine());
             }

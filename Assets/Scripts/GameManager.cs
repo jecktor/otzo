@@ -14,6 +14,9 @@ public class GameManager : MonoBehaviour
         Paused
     }
 
+	[Header("UI")]
+	public GameObject Prompt;
+
     public GameState CurrentState { get; private set; } = GameState.MainMenu;
 
     private GameDataManager dataManager;
@@ -68,7 +71,11 @@ public class GameManager : MonoBehaviour
         Cursor.visible = true;
         Cursor.lockState = CursorLockMode.None;
 
-        Debug.Log("🏠 Menú principal configurado - Cursor visible");
+	    Debug.Log("🏠 Menú principal configurado - Cursor visible");
+	    if (!IsUserLoggedIn())
+	    {
+		    Prompt.SetActive(true);
+	    }
     }
 
     void SetupGameScene()
@@ -117,12 +124,18 @@ public class GameManager : MonoBehaviour
         }
         return true;
     }
+    
+	public void ClosePrompt()
+	{
+		Prompt.SetActive(false);
+	}
 
     public async void StartGame()
     {
         // Verificar si hay usuario logeado
         if (!IsUserLoggedIn())
         {
+        	Prompt.SetActive(true);
             Debug.LogError("❌ No se puede iniciar juego: No hay usuario logeado");
             return;
         }
@@ -286,6 +299,7 @@ public class GameManager : MonoBehaviour
         // Verificar si hay usuario logeado
         if (!IsUserLoggedIn())
         {
+        	Prompt.SetActive(true);
             Debug.LogError("❌ No se puede iniciar arcade: No hay usuario logeado");
             return;
         }
@@ -308,6 +322,7 @@ public class GameManager : MonoBehaviour
         // Verificar si hay usuario logeado
         if (!IsUserLoggedIn())
         {
+        	Prompt.SetActive(true);
             Debug.LogError("❌ No se puede cargar room: No hay usuario logeado");
             return;
         }
