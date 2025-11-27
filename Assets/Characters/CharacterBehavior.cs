@@ -4,214 +4,257 @@ using System.Collections;
 using System;
 using System.Collections.Generic;
 
-
 [RequireComponent(typeof(NavMeshAgent))]
 [RequireComponent(typeof(Animator))]
 public class CustomerBehavior : MonoBehaviour
 {
-	public static Action<float> OnCustomerReady;
-	public static Action OnCustomerLeft;
+    public static Action<float> OnCustomerReady;
+    public static Action OnCustomerLeft;
 
-	[Header("Store navigation")]
-	[Tooltip("Assign shelf/pickup points here")]
-	public Transform[] storeLocations;
-	
-	[Tooltip("Assign store exit here")]
-	public Transform exit;
+    [Header("Store navigation")]
+    [Tooltip("Assign shelf/pickup points here")]
+    public Transform[] storeLocations;
 
-	[Tooltip("Assign the cash register object here (has QueueManager)")]
-	public Transform cashRegister;
-	
-	[Tooltip("Reference to grocery manager")]
-	public GroceryManager groceryManager;
+    [Tooltip("Assign store exit here")]
+    public Transform exit;
 
-	[Tooltip("Player's current money (debug only)")]
-	public float playerMoney = 0f;
-	
-	public ScanMiniGame scanMiniGame;
-	public AudioSource groceries;
+    [Tooltip("Assign the cash register object here (has QueueManager)")]
+    public Transform cashRegister;
 
-	NavMeshAgent agent;
-	Animator anim;
+    [Tooltip("Reference to grocery manager")]
+    public GroceryManager groceryManager;
 
-	bool isShopping = true;
-	bool isBusy = false;
+    [Tooltip("Player's current money (debug only)")]
+    public float playerMoney = 0f;
 
-	void Start()
-	{
-		agent = GetComponent<NavMeshAgent>();
-		anim = GetComponent<Animator>();
+    public ScanMiniGame scanMiniGame;
+    public AudioSource groceries;
 
-		// Ensure NavMeshAgent settings are safe
-		agent.updateRotation = true;
-		agent.updatePosition = true;
-		agent.isStopped = false;
+    NavMeshAgent agent;
+    Animator anim;
 
-		// Start by going to a random store shelf
-		GoToStoreLocationReserved();
-	}
+    bool isShopping = true;
+    bool isBusy = false;
 
-	void Update()
-	{
-		// --- Update animation based on velocity ---
-		float speed = agent.velocity.magnitude;
-		anim.SetFloat("Speed", speed);
+    void Start()
+    {
+        agent = GetComponent<NavMeshAgent>();
+        anim = GetComponent<Animator>();
 
-		// --- Handle arrival logic ---
-		if (!agent.pathPending && agent.remainingDistance <= agent.stoppingDistance && !isBusy)
-		{
-			if (isShopping)
-			{
-				// Finished shopping trip to shelf
-				StartCoroutine(PickUpRoutine());
-			}
-			else
-			{
-				// Already in queue, check if it's our turn
-				QueueManager qm = cashRegister.GetComponent<QueueManager>();
-				int myPos = qm.GetPositionInQueue(this);
+        // Ensure NavMeshAgent settings are safe
+        agent.updateRotation = true;
+        agent.updatePosition = true;
+        agent.isStopped = false;
 
-				if (myPos == 0) // First in line
-					StartCoroutine(CheckoutRoutine());
-			}
-		}
-	}
+        // Start by going to a random store shelf
+        GoToStoreLocationReserved();
+    }
 
-	// --- Choose a random shelf and go there ---
-	void GoToStoreLocationReserved()
-	{
-		var qm = cashRegister.GetComponent<QueueManager>();
-		if (!qm) return;
+    void Update()
+    {
+        // --- Update animation based on velocity ---
+        float speed = agent.velocity.magnitude;
+        anim.SetFloat("Speed", speed);
 
-		var spot = qm.RequestStoreSpot(this);
-		if (spot != null)
-		{
-			agent.SetDestination(spot.position);
-		}
-		else
-		{
-			// No free shelves: simple fallback → go queue now (or retry, see below)
-			isShopping = false;
-			var slot = qm.RequestSlot(this);
-			if (slot) agent.SetDestination(slot.position);
-		}
-	}
+        // --- Handle arrival logic ---
+        if (!agent.pathPending && agent.remainingDistance <= agent.stoppingDistance && !isBusy)
+        {
+            if (isShopping)
+            {
+                // Finished shopping trip to shelf
+                StartCoroutine(PickUpRoutine());
+            }
+            else
+            {
+                // Already in queue, check if it's our turn
+                QueueManager qm = cashRegister.GetComponent<QueueManager>();
+                int myPos = qm.GetPositionInQueue(this);
 
+                if (myPos == 0) // First in line
+                    StartCoroutine(CheckoutRoutine());
+            }
+        }
+    }
 
-	public IEnumerator Leave()
-	{
-		// Hide groceries again
-		if (groceryManager != null)
-			groceryManager.HideAllGroceries();
+    // --- Choose a random shelf and go there ---
+    void GoToStoreLocationReserved()
+    {
+        var qm = cashRegister.GetComponent<QueueManager>();
+        if (!qm) return;
 
-		// 🧹 Hide UI prompt when done
-		OnCustomerLeft?.Invoke();
+        var spot = qm.RequestStoreSpot(this);
+        if (spot != null)
+        {
+            agent.SetDestination(spot.position);
+        }
+        else
+        {
+            // No free shelves: simple fallback → go queue now (or retry, see below)
+            isShopping = false;
+            var slot = qm.RequestSlot(this);
+            if (slot) agent.SetDestination(slot.position);
+        }
+    }
 
-		// Notify queue manager that this customer is done
-		QueueManager qm = cashRegister.GetComponent<QueueManager>();
-		qm.OnCustomerFinished(this);
+    public IEnumerator Leave()
+    {
+        // Hide groceries again
+        if (groceryManager != null)
+            groceryManager.HideAllGroceries();
 
-		// Head to exit
-		agent.isStopped = false;
-		agent.SetDestination(exit.position);
+        // 🧹 Hide UI prompt when done
+        OnCustomerLeft?.Invoke();
 
-		yield return CoroutineUtils.WaitForEither(
-			() => !agent.pathPending && agent.remainingDistance <= agent.stoppingDistance,
-			4f
-		);
+        // Notify queue manager that this customer is done
+        QueueManager qm = cashRegister.GetComponent<QueueManager>();
+        qm.OnCustomerFinished(this);
 
-		isBusy = false;
+        // Head to exit
+        agent.isStopped = false;
+        agent.SetDestination(exit.position);
 
-		Destroy(gameObject);
-	}
+        yield return CoroutineUtils.WaitForEither(
+            () => !agent.pathPending && agent.remainingDistance <= agent.stoppingDistance,
+            4f
+        );
 
-	// --- Play the pickup animation at the shelf ---
-	IEnumerator PickUpRoutine()
-	{
-		isBusy = true;
-		agent.isStopped = true;
+        isBusy = false;
 
-		// Trigger animation
-		anim.SetTrigger("PickUp");
+        Destroy(gameObject);
+    }
 
-		// Wait for animation to play (adjust to match clip length)
-		yield return new WaitForSeconds(5f);
+    // --- Play the pickup animation at the shelf ---
+    IEnumerator PickUpRoutine()
+    {
+        isBusy = true;
+        agent.isStopped = true;
 
-		agent.isStopped = false;
+        // Trigger animation
+        anim.SetTrigger("PickUp");
 
-		// After pickup, move toward the queue
-		if (isShopping)
-		{
-			isShopping = false;
-			var qm = cashRegister.GetComponent<QueueManager>();
-			if (qm != null) qm.ReleaseStoreSpot(this);
+        // Wait for animation to play (adjust to match clip length)
+        yield return new WaitForSeconds(5f);
 
-			isShopping = false;
-			if (qm != null)
-			{
-			    Transform slot = qm.RequestSlot(this);
-			    if (slot) agent.SetDestination(slot.position);
-			}
-		}
+        agent.isStopped = false;
 
-		isBusy = false;
-	}
+        // After pickup, move toward the queue
+        if (isShopping)
+        {
+            isShopping = false;
+            var qm = cashRegister.GetComponent<QueueManager>();
+            if (qm != null) qm.ReleaseStoreSpot(this);
 
-	// --- Handle checkout when at front of queue ---
-	IEnumerator CheckoutRoutine()
-	{
-		isBusy = true;
-		agent.isStopped = true;
+            isShopping = false;
+            if (qm != null)
+            {
+                Transform slot = qm.RequestSlot(this);
+                if (slot) agent.SetDestination(slot.position);
+            }
+        }
 
-		// Play the checkout animation
-		anim.SetTrigger("PickUp");
-		yield return new WaitForSeconds(3f);
-		groceries.Play();
+        isBusy = false;
+    }
 
-		// Show groceries and calculate total
-		float payment = 0f;
-		if (groceryManager != null)
-		{
-			payment = groceryManager.ShowRandomGroceries();
-			Debug.Log($"Customer shows groceries worth ${payment}");
-		}
+    // --- Handle checkout when at front of queue ---
+    IEnumerator CheckoutRoutine()
+    {
+        isBusy = true;
+        agent.isStopped = true;
 
-		// 🔔 Notify UI that a customer is ready and how much money player will earn
-		OnCustomerReady?.Invoke(payment);
+        // Play the checkout animation
+        anim.SetTrigger("PickUp");
+        yield return new WaitForSeconds(3f);
+        groceries.Play();
 
-		// Wait for player confirmation (only if in checkout zone)
-		Debug.Log($"{name} waiting for player to confirm checkout...");
-		yield return new WaitUntil(() =>
-			CheckoutZone.playerInZone && Input.GetKeyDown(KeyCode.E));
+        // Show groceries and calculate total
+        float payment = 0f;
+        if (groceryManager != null)
+        {
+            payment = groceryManager.ShowRandomGroceries();
+            Debug.Log($"Customer shows groceries worth ${payment}");
+        }
 
-		// --- Begin Scan Mini-Game ---
-		if (groceryManager != null)
-		{
-			// Prepare the items we’ll scan (only the active ones)
-			List<GameObject> activeItems = new List<GameObject>();
-			foreach (var g in groceryManager.groceries)
-				if (g.activeSelf) activeItems.Add(g);
+        // 🔔 Notify UI that a customer is ready and how much money player will earn
+        OnCustomerReady?.Invoke(payment);
 
-			// Run the mini-game
-			if (scanMiniGame != null)
-			{
-				yield return StartCoroutine(scanMiniGame.Run(activeItems, payment, (earned) =>
-				{
-					payment = earned;
-				}));
-			}
-		}
+        // Wait for player confirmation (only if in checkout zone)
+        Debug.Log($"{name} waiting for player to confirm checkout...");
+        yield return new WaitUntil(() =>
+            CheckoutZone.playerInZone && Input.GetKeyDown(KeyCode.E));
 
-		// Player gets money
-		playerMoney += payment;
-		Debug.Log($"Player total money: ${playerMoney}");
-		
-		PlayerWallet wallet = FindFirstObjectByType<PlayerWallet>();
-		if (wallet != null)
-			wallet.AddMoney(payment);
+        // --- Apply sleep penalty BEFORE mini-game ---
+        float sleepMultiplier = GetSleepMultiplier();
+        float basePayment = payment;
+        payment *= sleepMultiplier;
 
-		yield return StartCoroutine(Leave());
-	}
+        if (sleepMultiplier < 1f)
+        {
+            Debug.Log($"😴 Penalidad por sueño: {sleepMultiplier:P0}. Pago base: ${basePayment:F2} -> Pago real: ${payment:F2}");
+        }
 
+        // --- Begin Scan Mini-Game ---
+        if (groceryManager != null)
+        {
+            // Prepare the items we'll scan (only the active ones)
+            List<GameObject> activeItems = new List<GameObject>();
+            foreach (var g in groceryManager.groceries)
+                if (g.activeSelf) activeItems.Add(g);
 
+            // Run the mini-game
+            if (scanMiniGame != null)
+            {
+                yield return StartCoroutine(scanMiniGame.Run(activeItems, payment, (earned) =>
+                {
+                    payment = earned;
+
+                    // --- Apply customer attitude bonus AFTER mini-game ---
+                    float finalPayment = ApplyCustomerAttitudeBonus(payment);
+
+                    if (finalPayment > payment)
+                    {
+                        Debug.Log($"🌟 Bono de actitud de clientes: ${payment:F2} -> ${finalPayment:F2}");
+                    }
+
+                    payment = finalPayment;
+                }));
+            }
+        }
+
+        // Player gets money
+        playerMoney += payment;
+        Debug.Log($"💰 Pago final: ${payment:F2} | Total del jugador: ${playerMoney}");
+
+        PlayerWallet wallet = FindFirstObjectByType<PlayerWallet>();
+        if (wallet != null)
+            wallet.AddMoney(payment);
+
+        yield return StartCoroutine(Leave());
+    }
+
+    private float GetSleepMultiplier()
+    {
+        if (GameManagerPersistent.Instance != null && GameManagerPersistent.Instance.sleepSystem != null)
+        {
+            float sleepQuality = GameManagerPersistent.Instance.sleepSystem.CurrentSleepQuality;
+
+            if (sleepQuality >= 80f) return 1.0f;      
+            if (sleepQuality >= 60f) return 0.9f;     
+            if (sleepQuality >= 40f) return 0.75f;  
+            if (sleepQuality >= 20f) return 0.6f;  
+            return 0.5f;                            
+        }
+
+        return 1.0f; 
+    }
+
+    private float ApplyCustomerAttitudeBonus(float payment)
+    {
+        if (ShopManager.Instance != null &&
+            ShopManager.Instance.IsUpgradePurchased("🌟 Mejorar Actitud Clientes"))
+        {
+            return payment * 1.5f;
+        }
+
+        return payment;
+    }
 }

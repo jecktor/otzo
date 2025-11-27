@@ -1,11 +1,13 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
+using System.Linq;
 
 public class ShopManager : MonoBehaviour
 {
     public static ShopManager Instance { get; private set; }
 
     private HashSet<string> purchasedUpgrades = new HashSet<string>();
+    private const string PURCHASED_UPGRADES_KEY = "PurchasedUpgrades";
 
     void Awake()
     {
@@ -13,7 +15,7 @@ public class ShopManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-
+            LoadPurchasedUpgrades();
         }
         else
         {
@@ -26,7 +28,7 @@ public class ShopManager : MonoBehaviour
         if (!purchasedUpgrades.Contains(upgradeName))
         {
             purchasedUpgrades.Add(upgradeName);
-            Debug.Log($"Mejora comprada: {upgradeName}");
+            SavePurchasedUpgrades();
         }
     }
 
@@ -40,28 +42,39 @@ public class ShopManager : MonoBehaviour
         return new List<string>(purchasedUpgrades);
     }
 
-    public bool HasCustomerAttitudeUpgrade()
+    private void LoadPurchasedUpgrades()
     {
-        return IsUpgradePurchased("🌟 MEJORAR ACTITUD CLIENTES");
+        string savedUpgrades = PlayerPrefs.GetString(PURCHASED_UPGRADES_KEY, "");
+        if (!string.IsNullOrEmpty(savedUpgrades))
+        {
+            string[] upgrades = savedUpgrades.Split(';');
+            foreach (string upgrade in upgrades)
+            {
+                if (!string.IsNullOrEmpty(upgrade))
+                {
+                    purchasedUpgrades.Add(upgrade);
+                }
+            }
+        }
     }
 
-    public bool HasInventoryExpansion()
+    private void SavePurchasedUpgrades()
     {
-        return IsUpgradePurchased("🔒 EXPANSIÓN DE INVENTARIO");
+        List<string> upgradesList = new List<string>(purchasedUpgrades);
+        string savedUpgrades = string.Join(";", upgradesList.ToArray());
+        PlayerPrefs.SetString(PURCHASED_UPGRADES_KEY, savedUpgrades);
+        PlayerPrefs.Save();
     }
 
-    public bool HasLoyaltySystem()
+    public string GetPurchasedUpgradesString()
     {
-        return IsUpgradePurchased("🔒 SISTEMA DE FIDELIDAD");
+        return string.Join(";", purchasedUpgrades.ToArray());
     }
 
-    public bool HasDigitalMarketing()
+    public void ResetPurchases()
     {
-        return IsUpgradePurchased("🔒 MARKETING DIGITAL");
-    }
-
-    public bool HasDeliveryService()
-    {
-        return IsUpgradePurchased("🔒 SERVICIO A DOMICILIO");
+        purchasedUpgrades.Clear();
+        PlayerPrefs.DeleteKey(PURCHASED_UPGRADES_KEY);
+        PlayerPrefs.Save();
     }
 }

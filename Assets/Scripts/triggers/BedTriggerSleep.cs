@@ -1,33 +1,79 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class BedTriggerSleep : MonoBehaviour
 {
-    [Header("Configuraci�n Cama")]
+    [Header("Configuración Cama")]
     public KeyCode interactionKey = KeyCode.E;
     public float interactionRange = 2f;
 
     private Transform player;
     private bool isNearBed = false;
     private GameClock gameClock;
+    private SleepSystem sleepSystem;
     private GUIStyle guiStyle;
     private Texture2D backgroundTex;
+    private bool systemsInitialized = false;
 
     void Start()
     {
         player = GameObject.FindGameObjectWithTag("Player").transform;
-        gameClock = GameClock.Instance;
         CreateGUIStyle();
+
+        TryInitializeSystems();
+        EnsureGameDataManagerExists();
+        EnsureEmailManagerExists();
+    }
+
+    void EnsureGameDataManagerExists()
+    {
+        if (GameDataManager.Instance == null)
+        {
+            GameObject gameDataManagerObj = new GameObject("GameDataManager");
+            gameDataManagerObj.AddComponent<GameDataManager>();
+        }
+    }
+
+    void EnsureEmailManagerExists()
+    {
+        if (EmailManager.Instance == null)
+        {
+            GameObject emailManagerObj = new GameObject("EmailManager");
+            emailManagerObj.AddComponent<EmailManager>();
+        }
     }
 
     void Update()
     {
+        if (UIManager.Instance != null && UIManager.Instance.CurrentState == UIManager.GameState.Paused)
+            return;
+
         if (player == null) return;
+
+        if (!systemsInitialized)
+        {
+            TryInitializeSystems();
+        }
 
         CheckBedProximity();
 
         if (isNearBed && Input.GetKeyDown(interactionKey))
         {
             SleepInBed();
+        }
+    }
+
+    void TryInitializeSystems()
+    {
+        if (GameManagerPersistent.Instance != null)
+        {
+            gameClock = GameManagerPersistent.Instance.gameClock;
+            sleepSystem = GameManagerPersistent.Instance.sleepSystem;
+
+            if (gameClock != null && sleepSystem != null)
+            {
+                systemsInitialized = true;
+                Debug.Log("✅ Sistemas de cama inicializados correctamente");
+            }
         }
     }
 
@@ -39,12 +85,38 @@ public class BedTriggerSleep : MonoBehaviour
 
     void SleepInBed()
     {
-        if (gameClock != null)
+        if (!EmailManager.Instance.HasReadFirstDayEmail)
         {
+            Debug.Log("📧 Debes leer el correo primero antes de dormir");
+            return;
+        }
+
+        if (!systemsInitialized)
+        {
+            TryInitializeSystems();
+            if (!systemsInitialized)
+            {
+                Debug.LogError("❌ Sistemas no inicializados");
+                return;
+            }
+        }
+
+        if (gameClock != null && sleepSystem != null)
+        {
+            int dayBeforeSleep = gameClock.CurrentDay;
+
+            // ⚠️ YA NO NECESITAS ESTO - GameClock lo maneja automáticamente
+            // gameClock.CompleteFirstDay(); ← ELIMINAR ESTA LÍNEA
+
+            float sleepBefore = sleepSystem.CurrentSleepQuality;
+            sleepSystem.Sleep();
+            float sleepAfter = sleepSystem.CurrentSleepQuality;
+
             gameClock.SleepAndAdvanceTime();
+
+            Debug.Log($"🛌 Dormido - Día: {dayBeforeSleep} → {gameClock.CurrentDay}, Sueño: {sleepBefore:F1}% → {sleepAfter:F1}%");
         }
     }
-
     void CreateGUIStyle()
     {
         guiStyle = new GUIStyle();
@@ -61,6 +133,9 @@ public class BedTriggerSleep : MonoBehaviour
 
     void OnGUI()
     {
+        if (UIManager.Instance != null && UIManager.Instance.CurrentState == UIManager.GameState.Paused)
+            return;
+
         if (isNearBed)
         {
             float boxWidth = 350;
@@ -68,7 +143,11 @@ public class BedTriggerSleep : MonoBehaviour
             float x = (Screen.width - boxWidth) / 2;
             float y = 100;
 
-            GUI.Box(new Rect(x, y, boxWidth, boxHeight), "Presiona la letra E para dormir", guiStyle);
+            string message = EmailManager.Instance.HasReadFirstDayEmail ?
+                "Presiona la letra E para dormir" :
+                "Revisa tu correo en la computadora";
+
+            GUI.Box(new Rect(x, y, boxWidth, boxHeight), message, guiStyle);
         }
     }
 

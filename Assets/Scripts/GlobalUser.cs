@@ -6,6 +6,8 @@ public class GlobalUser : MonoBehaviour
 
 	public string Username { get; private set; }
 	public int BestScore { get; private set; }
+	
+	public bool IsLoggedIn => !string.IsNullOrEmpty(Username);
 
 	void Awake()
 	{

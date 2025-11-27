@@ -4,102 +4,183 @@ using Firebase;
 using Firebase.Firestore;
 using Firebase.Extensions;
 using System.Collections.Generic;
+using UnityEngine.SceneManagement;
 
 public class UsernameLogin : MonoBehaviour
 {
-	[Header("UI")]
-	public TMP_InputField usernameInput;
-	public TMP_Text feedbackText;
+    [Header("UI")]
+    public TMP_InputField usernameInput;
+    public TMP_Text feedbackText;
 
-	FirebaseFirestore db;
+    private FirebaseFirestore db;
+    private bool isProcessing = false;
 
-	async void Start()
-	{
-		var dep = await FirebaseApp.CheckAndFixDependenciesAsync();
+    async void Start()
+    {
+        feedbackText.text = "Inicializando...";
 
-		if (dep != DependencyStatus.Available)
-		{
-			feedbackText.text = "Error inicializando Firebase.";
-			return;
-		}
+        var dep = await FirebaseApp.CheckAndFixDependenciesAsync();
 
-		db = FirebaseFirestore.DefaultInstance;
-	}
+        if (dep != DependencyStatus.Available)
+        {
+            feedbackText.text = "Error inicializando Firebase.";
+            return;
+        }
 
-	public void OnConfirmUsername()
-	{
-		string username = usernameInput.text.Trim().ToLower();
+        db = FirebaseFirestore.DefaultInstance;
+        feedbackText.text = "Listo. Introduce tu nombre de usuario.";
+    }
 
-		if (string.IsNullOrEmpty(username))
-		{
-			feedbackText.text = "Introduce un nombre válido.";
-			return;
-		}
+    public void OnConfirmUsername()
+    {
+        // Evitar múltiples clics mientras se procesa
+        if (isProcessing)
+        {
+            feedbackText.text = "Procesando, espera...";
+            return;
+        }
 
-		CheckIfUsernameExists(username);
-	}
+        string username = usernameInput.text.Trim().ToLower();
 
-	void CheckIfUsernameExists(string username)
-	{
-		DocumentReference doc = db.Collection("players").Document(username);
+        if (string.IsNullOrEmpty(username))
+        {
+            feedbackText.text = "Introduce un nombre válido.";
+            return;
+        }
 
-		doc.GetSnapshotAsync().ContinueWithOnMainThread(task =>
-		{
-			if (task.IsFaulted)
-			{
-				feedbackText.text = "Error conectando con Firestore.";
-				return;
-			}
+        if (username.Length < 3)
+        {
+            feedbackText.text = "El nombre debe tener al menos 3 caracteres.";
+            return;
+        }
 
-			// If user does NOT exist
-			if (!task.Result.Exists)
-			{
-				CreateNewUser(username);
-				return;
-			}
+        // Marcar como procesando y cambiar texto
+        isProcessing = true;
+        feedbackText.text = "Cargando...";
 
-			// User exists → load data
-			Dictionary<string, object> data = task.Result.ToDictionary();
+        CheckIfUsernameExists(username);
+    }
 
-			int score = 0;
-			if (data.ContainsKey("bestScore"))
-			{
-				int.TryParse(data["bestScore"].ToString(), out score);
-			}
+    void CheckIfUsernameExists(string username)
+    {
+        DocumentReference doc = db.Collection("players").Document(username);
 
-			// Store globally
-			GlobalUser.Instance.SetUser(username, score);
+        doc.GetSnapshotAsync().ContinueWithOnMainThread(task =>
+        {
+            if (task.IsFaulted)
+            {
+                feedbackText.text = "Error conectando con Firestore.";
+                isProcessing = false;
+                return;
+            }
 
-			feedbackText.text = $"Bienvenido de vuelta, {username}!";
+            if (task.IsCanceled)
+            {
+                feedbackText.text = "Operación cancelada. Intenta nuevamente.";
+                isProcessing = false;
+                return;
+            }
 
-			// TODO: Load your main menu or game scene
-		});
-	}
+            if (!task.Result.Exists)
+            {
+                CreateNewUser(username);
+            }
+            else
+            {
+                LoadExistingUser(username);
+            }
+        });
+    }
 
-	void CreateNewUser(string username)
-	{
-		var data = new Dictionary<string, object>
-		{
-			{"username", username},
-			{"bestScore", 0}
-		};
+    void CreateNewUser(string username)
+    {
+        try
+        {
+            feedbackText.text = "Creando usuario...";
 
-		DocumentReference doc = db.Collection("players").Document(username);
+            GlobalUser.Instance.SetUser(username, 0);
 
-		doc.SetAsync(data).ContinueWithOnMainThread(task =>
-		{
-			if (task.IsFaulted)
-			{
-				feedbackText.text = "Error creando usuario.";
-				return;
-			}
+            if (GameDataManager.Instance != null)
+            {
+                GameDataManager.Instance.CreateDefaultUserData();
+            }
 
-			// Store globally
-			GlobalUser.Instance.SetUser(username, 0);
+            feedbackText.text = $"¡Usuario {username} creado!";
+            Debug.Log($"✅ Nuevo usuario creado: {username}");
 
-			feedbackText.text = $"¡Usuario creado: {username}!";
+            // Cargar menú principal después de un breve delay
+            Invoke("LoadMainMenu", 1.5f);
+        }
+        catch (System.Exception ex)
+        {
+            feedbackText.text = "❌ Error creando usuario.";
+            isProcessing = false;
+            Debug.LogError($"Error creando usuario: {ex.Message}");
+        }
+    }
 
-			// TODO: Load your main menu or game scene
-		});
-	}
+    void LoadExistingUser(string username)
+    {
+        try
+        {
+            feedbackText.text = "Cargando datos...";
+
+            GlobalUser.Instance.SetUser(username, 0);
+
+            if (GameDataManager.Instance != null)
+            {
+                GameDataManager.Instance.LoadUserDataFromFirebase();
+            }
+
+            feedbackText.text = $"¡Bienvenido de vuelta, {username}!";
+            Debug.Log($"Usuario cargado: {username}");
+
+            // Cargar menú principal después de un breve delay
+            Invoke("LoadMainMenu", 1.5f);
+        }
+        catch (System.Exception ex)
+        {
+            feedbackText.text = "❌ Error cargando usuario.";
+            isProcessing = false;
+            Debug.LogError($"Error cargando usuario: {ex.Message}");
+        }
+    }
+
+    void LoadMainMenu()
+    {
+        try
+        {
+            feedbackText.text = "Cargando menú principal...";
+            SceneManager.LoadScene("MainMenu");
+        }
+        catch (System.Exception ex)
+        {
+            feedbackText.text = "❌ Error cargando menú.";
+            isProcessing = false;
+            Debug.LogError($"Error cargando menú principal: {ex.Message}");
+        }
+    }
+
+    // Método para reiniciar el estado si hay problemas
+    public void ResetLoginState()
+    {
+        isProcessing = false;
+        feedbackText.text = "Estado reiniciado. Introduce tu nombre de usuario.";
+    }
+
+    // Permitir usar Enter para confirmar
+    void Update()
+    {
+        if (usernameInput != null && usernameInput.isFocused && Input.GetKeyDown(KeyCode.Return))
+        {
+            OnConfirmUsername();
+        }
+    }
+
+    // Limpiar cuando se desactive el objeto
+    void OnDisable()
+    {
+        isProcessing = false;
+        CancelInvoke();
+    }
 }
